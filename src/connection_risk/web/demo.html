@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compare flight connections by price, travel time, and estimated missed-connection risk.">
+  <title>Berlin to Shanghai — Connection Risk</title>
+  <link rel="stylesheet" href="/static/demo.css?v=0.6.9">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/demo" aria-label="Connection Risk demo home"><span class="brand-mark">CR</span><span>Connection Risk</span></a>
+    <nav aria-label="Primary navigation"><a href="/">Connection checker</a></nav>
+    <span id="data-mode" class="data-mode">Loading data mode…</span>
+  </header>
+
+  <main>
+    <section class="search-summary" aria-labelledby="search-title">
+      <div>
+        <h1 id="search-title">Berlin <span>→</span> Shanghai</h1>
+        <p id="search-meta">20 Sep 2026 · Economy · 1 passenger</p>
+      </div>
+    </section>
+
+    <div class="results-layout">
+      <section class="results" aria-labelledby="results-title">
+        <section id="study-panel" class="study-panel" hidden aria-live="polite">
+          <p class="eyebrow">Traveler choice study · no personal data</p>
+          <h2 id="study-title">Step 1 of 2 — Which flight would you buy?</h2>
+          <p id="study-instruction">Choose using the fare and itinerary information you would normally see. Connection Risk will be revealed next.</p>
+          <div id="study-result" hidden></div>
+          <div id="study-admin" class="study-admin" hidden>
+            <button id="next-participant" type="button">Start next participant</button>
+            <button id="export-study" type="button">Export anonymous CSV</button>
+            <span id="study-count"></span>
+          </div>
+        </section>
+        <div class="results-heading"><h2 id="results-title">Choose a flight</h2></div>
+        <div id="itinerary-list" class="itinerary-list" aria-live="polite">
+          <article class="loading-card">Calculating connection risk with the existing engine…</article>
+        </div>
+        <p id="demo-disclaimer" class="disclaimer"></p>
+      </section>
+    </div>
+  </main>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="risk-drawer" class="risk-drawer" aria-labelledby="drawer-title" aria-hidden="true">
+    <button id="drawer-close" class="drawer-close" type="button" aria-label="Close risk details">×</button>
+    <div id="drawer-content"></div>
+  </aside>
+
+  <script src="/static/demo.js?v=0.6.9" defer></script>
+</body>
+</html>

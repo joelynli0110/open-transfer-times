@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.pytest-tmp*/
+.venv/
+.verify-venv/
+.verify-deps/
+.first-run-smoke/
+build/
+dist/
+data/raw/
+data/processed/
+data/public/
+data/generated/
+benchmark/output/
+docs/roadmap.md

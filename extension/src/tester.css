@@ -1,0 +1,20 @@
+:root { color-scheme: light; font: 15px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+body { margin: 0; color: #172033; background: #f2f4f7; }
+main { width: min(980px, calc(100% - 32px)); margin: 36px auto 70px; }
+header { margin-bottom: 22px; }
+.eyebrow { margin: 0; color: #b54708; font-size: 11px; font-weight: 800; letter-spacing: .09em; }
+h1 { margin: 4px 0 6px; font-size: 34px; }
+header p:last-child { max-width: 720px; color: #667085; }
+.card { margin: 16px 0; padding: 22px; border: 1px solid #e4e7ec; border-radius: 16px; background: #fff; box-shadow: 0 5px 20px rgb(16 24 40 / 7%); }
+.inputs { display: grid; gap: 15px; }
+label { display: grid; gap: 6px; font-weight: 700; }
+input, textarea { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 9px; font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+textarea { resize: vertical; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+button { padding: 10px 16px; border: 1px solid #0b57d0; border-radius: 999px; background: #0b57d0; color: #fff; cursor: pointer; font: inherit; font-weight: 700; }
+button.secondary { background: #fff; color: #0b57d0; }
+h2 { margin: 0 0 8px; font-size: 19px; }
+.status { margin: 0 0 10px; color: #667085; }
+.status.success { color: #067647; }
+.status.error { color: #b42318; }
+pre { min-height: 24px; margin: 0; padding: 14px; overflow: auto; border-radius: 10px; background: #101828; color: #f8fafc; white-space: pre-wrap; word-break: break-word; }

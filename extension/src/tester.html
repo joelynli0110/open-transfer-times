@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Connection Risk parser test</title>
+    <link rel="stylesheet" href="tester.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">CONNECTION RISK · LOCAL DIAGNOSTIC</p>
+        <h1>Google Flights parser test</h1>
+        <p>Runs the exact parser used by the page badge. The captured snapshot is removed from Chrome session storage as soon as this page loads.</p>
+      </header>
+
+      <section class="card inputs">
+        <label>Google Flights URL<input id="page-url" type="url" spellcheck="false"></label>
+        <label>Visible page text<textarea id="page-text" rows="14" spellcheck="false"></textarea></label>
+        <div class="actions">
+          <button id="parse" type="button">Parse itinerary</button>
+          <button id="analyze" class="secondary" type="button">Parse and call API</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Parser result</h2>
+        <p id="parser-summary" class="status">Waiting to run.</p>
+        <pre id="parser-output"></pre>
+      </section>
+
+      <section class="card">
+        <h2>API result</h2>
+        <p id="api-summary" class="status">Not requested.</p>
+        <pre id="api-output"></pre>
+      </section>
+    </main>
+    <script src="parser.js"></script>
+    <script src="tester.js"></script>
+  </body>
+</html>

@@ -1,0 +1,12 @@
+:root { color-scheme: light; font: 14px/1.45 "Google Sans", Roboto, Arial, sans-serif; }
+body { width: 310px; margin: 0; color: #202124; background: #fff; }
+main { padding: 20px; }
+.brand { display: flex; align-items: center; gap: 9px; }
+.brand > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: #e8f0fe; color: #1a73e8; font-size: 16px; }
+.brand strong { font-size: 15px; font-weight: 600; }
+#status { min-height: 38px; margin: 18px 0 14px; color: #3c4043; font-size: 17px; font-weight: 600; letter-spacing: -.01em; }
+button { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 14px; border: 0; border-radius: 12px; background: #1a73e8; color: #fff; box-shadow: 0 1px 2px rgb(60 64 67 / 20%); cursor: pointer; font: inherit; font-weight: 600; }
+button:hover { background: #1b66c9; }
+button:disabled { background: #bdc1c6; box-shadow: none; cursor: not-allowed; }
+.privacy { display: flex; align-items: center; gap: 6px; margin: 14px 2px 0; color: #5f6368; font-size: 11px; }
+.privacy span { width: 7px; height: 7px; border-radius: 50%; background: #5f8b73; }

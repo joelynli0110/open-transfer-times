@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Estimate whether your self-transfer or separate-ticket flight connection is realistically safe.">
+  <title>Connection Risk — Will I make my connection?</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/" aria-label="Connection Risk home">
+      <span class="brand-mark" aria-hidden="true">CR</span>
+      <span>Connection Risk</span>
+    </a>
+    <div class="header-actions"><a class="demo-link" href="/demo">Compare demo flights</a><span class="alpha-pill">Experimental alpha</span></div>
+  </header>
+
+  <main>
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow">Plan the connection, not just the flights</p>
+        <h1 id="page-title">Will I make my connection?</h1>
+        <p class="hero-description">
+          Enter two flight numbers and one travel date. We identify the airports, schedule,
+          terminals and likely transfer type from the configured schedule provider.
+        </p>
+        <div class="trust-row" aria-label="Product characteristics">
+          <span>No account</span><span>No itinerary storage</span><span>Free alpha</span>
+        </div>
+      </div>
+      <aside class="demo-note">
+        <span class="demo-note-icon" aria-hidden="true">i</span>
+        <div>
+          <strong>Optional schedule lookup</strong>
+          <p>This direct checker needs a configured server-side provider. For the complete product experience, open the deterministic flight comparison demo.</p>
+        </div>
+      </aside>
+    </section>
+
+    <section class="checker-shell" aria-label="Connection checker">
+      <form id="risk-form" class="checker-form" novalidate>
+        <div class="form-heading">
+          <div>
+            <p class="step-label">Your itinerary</p>
+            <h2>Connection details</h2>
+          </div>
+          <span class="live-data-pill">Schedule lookup</span>
+        </div>
+
+        <div class="flight-grid">
+          <fieldset class="flight-card">
+            <legend><span class="flight-number-badge">1</span> Inbound flight</legend>
+            <label>Flight number
+              <input id="inbound-flight" name="inbound-flight" placeholder="e.g. LH1234" autocomplete="off" maxlength="10" required>
+              <span class="field-hint">Origin, arrival airport and time are detected automatically.</span>
+            </label>
+          </fieldset>
+
+          <div class="route-connector" aria-hidden="true">
+            <span></span><span class="plane">✦</span><span></span>
+          </div>
+
+          <fieldset class="flight-card">
+            <legend><span class="flight-number-badge">2</span> Outbound flight</legend>
+            <label>Flight number
+              <input id="outbound-flight" name="outbound-flight" placeholder="e.g. LH710" autocomplete="off" maxlength="10" required>
+              <span class="field-hint">Connection airport, departure terminal and destination are detected automatically.</span>
+            </label>
+          </fieldset>
+        </div>
+
+        <div class="connection-row date-row">
+          <label>Travel date
+            <input id="flight-date" name="flight-date" type="date" required>
+            <span class="field-hint">Date of the inbound flight’s departure.</span>
+          </label>
+          <div class="layover-preview">
+            <span>Route &amp; layover</span>
+            <strong id="layover-preview">Detected after lookup</strong>
+          </div>
+        </div>
+
+        <fieldset class="transfer-options">
+          <legend>Two things only you can tell us</legend>
+          <p class="options-intro">Self-transfer and terminal change are detected automatically. Please provide your baggage and border requirements.</p>
+          <div class="toggle-grid">
+            <label class="toggle-card">
+              <input id="checked-baggage" type="checkbox">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>I have checked baggage</strong><small>Include time to collect and re-check bags if needed</small></span>
+            </label>
+            <label class="toggle-card">
+              <input id="passport-control" type="checkbox">
+              <span class="toggle-control" aria-hidden="true"></span>
+              <span><strong>I need Schengen exit / passport control</strong><small>For example, your nationality or visa requires border processing</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <div id="form-error" class="form-error" role="alert" hidden></div>
+        <button id="submit-button" class="primary-button" type="submit">
+          <span class="button-label">Check my connection</span>
+          <span class="button-arrow" aria-hidden="true">→</span>
+        </button>
+        <p class="form-disclaimer">No itinerary is stored. This is an experimental modeled estimate, not a guarantee.</p>
+      </form>
+
+      <section id="result-panel" class="result-panel" aria-live="polite" hidden>
+        <div class="result-topline">
+          <span id="risk-kicker" class="risk-kicker">Connection assessment</span>
+          <span id="confidence-chip" class="confidence-chip"></span>
+        </div>
+        <div class="result-hero">
+          <div id="risk-ring" class="risk-ring" aria-label="Estimated miss probability">
+            <strong id="risk-score">—</strong><span>%</span>
+          </div>
+          <div>
+            <p class="result-label">Estimated chance of missing the connection</p>
+            <h2 id="result-headline">—</h2>
+            <p id="confidence-summary" class="result-summary"></p>
+          </div>
+        </div>
+
+        <div class="time-comparison">
+          <div><span>Your connection</span><strong id="scheduled-time">—</strong></div>
+          <div class="comparison-arrow" aria-hidden="true">→</div>
+          <div><span>Planning reference</span><strong id="recommended-time">—</strong></div>
+        </div>
+        <p id="recommendation-basis" class="basis-note"></p>
+
+        <div id="warnings" class="warnings"></div>
+
+        <div class="reasons-section">
+          <p class="step-label">What drives this result</p>
+          <h3>Why this connection may be risky</h3>
+          <div id="reasons" class="reason-list"></div>
+        </div>
+
+        <details id="technical-details" class="technical-details">
+          <summary>How this estimate was built</summary>
+          <div class="technical-grid">
+            <div><span>Delay confidence</span><strong id="delay-confidence">—</strong></div>
+            <div><span>Transfer confidence</span><strong id="transfer-confidence">—</strong></div>
+            <div><span>Delay observations</span><strong id="sample-count">—</strong></div>
+            <div><span>Delay match</span><strong id="match-level">—</strong></div>
+            <div><span>Modeled transfer P90</span><strong id="transfer-p90">—</strong></div>
+            <div><span>Practical buffer</span><strong id="practical-buffer">—</strong></div>
+          </div>
+          <p id="data-notice" class="data-notice"></p>
+        </details>
+
+        <button id="check-another" class="secondary-button" type="button">Check another connection</button>
+      </section>
+    </section>
+
+    <section class="explanation-strip">
+      <div><span>01</span><h3>Delay history</h3><p>Empirical inbound delay samples are resampled in the existing engine.</p></div>
+      <div><span>02</span><h3>Airport transfer</h3><p>Baggage, walking, border and security steps are modeled for the connection.</p></div>
+      <div><span>03</span><h3>Clear answer</h3><p>The technical result becomes a traveler-friendly risk level with reasons and uncertainty.</p></div>
+    </section>
+  </main>
+
+  <footer>
+    <div><strong>Connection Risk</strong><p>Experimental open-source decision support for flight connections.</p></div>
+    <p>Itineraries are processed in memory and are not persisted by this alpha.</p>
+  </footer>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>
