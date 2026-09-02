@@ -6,6 +6,15 @@ Connection Quality is a small Chrome extension that adds structural connection g
 
 It evaluates booking-time connection quality from the scheduled itinerary structure.
 
+## Alpha
+
+The extension is currently in beta testing.
+
+Google Flights desktop only. Chrome Web Store listing: **not yet published**.
+
+See the [privacy policy](PRIVACY.md) and
+[Chrome Web Store submission materials](docs/chrome-web-store/).
+
 ## MVP experience
 
 1. Open and expand a one-stop itinerary on Google Flights.
@@ -110,6 +119,14 @@ Then in Chrome:
 5. Open or reload Google Flights and expand a one-stop itinerary.
 
 After source changes, run `npm run check`, then select **Reload** on the extension card and reload the Google Flights tab.
+
+Create the reproducible Chrome Web Store submission package with:
+
+```powershell
+npm run package:chrome
+```
+
+The generated ZIP is written to `release/` with `manifest.json` at the archive root.
 
 ## Tests
 

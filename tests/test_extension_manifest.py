@@ -10,8 +10,20 @@ def test_extension_manifest_is_minimal_manifest_v3() -> None:
     manifest = json.loads((EXTENSION / "manifest.json").read_text(encoding="utf-8"))
 
     assert manifest["manifest_version"] == 3
+    assert manifest["name"] == "Connection Quality for Google Flights BETA"
     assert manifest["version"] == "0.1.0"
+    assert manifest["description"] == (
+        "See whether an international flight connection is comfortable, "
+        "tight, or risky before you book."
+    )
     assert manifest["permissions"] == ["activeTab"]
+    assert manifest["icons"] == {
+        "16": "icons/icon-16.png",
+        "32": "icons/icon-32.png",
+        "48": "icons/icon-48.png",
+        "128": "icons/icon-128.png",
+    }
+    assert manifest["action"]["default_icon"] == manifest["icons"]
     assert manifest["content_scripts"][0]["matches"] == [
         "https://www.google.com/travel/flights*",
     ]
@@ -26,6 +38,7 @@ def test_extension_manifest_references_existing_files() -> None:
         referenced.extend(content_script.get("css", []))
 
     assert all((EXTENSION / path).is_file() for path in referenced)
+    assert all((EXTENSION / path).is_file() for path in manifest["icons"].values())
     assert "background" not in manifest
 
 

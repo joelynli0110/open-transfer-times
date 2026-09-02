@@ -4,4 +4,6 @@ The active Google Flights-only Manifest V3 source is in this directory. Build it
 
 The Skyscanner adapter files are retained only as unregistered experimental code. They are not referenced by the production manifest or copied to `dist/`.
 
+Create the Chrome Web Store ZIP from the repository root with `npm run package:chrome`. The reproducible archive is written to `release/` with `manifest.json` at its root.
+
 `src/service-worker.js` and the tester files are preserved from the legacy v0.4 localhost-API experiment. They are not referenced by `manifest.json` and are not copied to `dist/`.

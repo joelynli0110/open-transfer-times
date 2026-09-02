@@ -6,6 +6,7 @@
   "scripts": {
     "airports": "node scripts/generate-airport-catalog.js",
     "build": "node scripts/build-extension.js",
+    "package:chrome": "npm run build && node scripts/package-chrome-extension.js",
     "test": "node extension/tests/run-tests.js",
     "lint": "node scripts/check-js.js",
     "check": "npm run lint && npm test && npm run build"

@@ -9,6 +9,7 @@ __pycache__/
 .first-run-smoke/
 build/
 dist/
+release/
 data/raw/
 data/processed/
 data/public/

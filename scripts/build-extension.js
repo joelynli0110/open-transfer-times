@@ -6,6 +6,16 @@ const source = path.join(root, "extension");
 const destination = path.join(root, "dist");
 const manifest = JSON.parse(fs.readFileSync(path.join(source, "manifest.json"), "utf8"));
 const files = new Set(["manifest.json", manifest.action.default_popup]);
+
+function addManifestAssets(value) {
+  if (typeof value === "string") files.add(value);
+  else if (value && typeof value === "object") {
+    for (const file of Object.values(value)) files.add(file);
+  }
+}
+
+addManifestAssets(manifest.icons);
+addManifestAssets(manifest.action.default_icon);
 for (const contentScript of manifest.content_scripts || []) {
   for (const file of contentScript.js || []) files.add(file);
   for (const file of contentScript.css || []) files.add(file);
