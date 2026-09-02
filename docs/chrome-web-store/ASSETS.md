@@ -7,15 +7,17 @@ information, or unrelated browser content.
 
 ## Extension icons — complete
 
-The package includes original PNG icons at:
+The package includes PNG derivatives of `assets/icon-source.png` at:
 
 - `extension/icons/icon-16.png` — 16×16
 - `extension/icons/icon-32.png` — 32×32
 - `extension/icons/icon-48.png` — 48×48
 - `extension/icons/icon-128.png` — 128×128
 
-The icon combines an abstract flight path, connection point, aircraft and status
-check. It does not use Google Flights, airline, airport, or third-party logos.
+The icon uses a dark navy airplane, a pale-blue connection route and a clock on a
+light rounded-square background. It does not use Google Flights, airline, airport,
+or third-party logos. The high-resolution source image remains outside the
+production extension package.
 
 ## Screenshot 1 — Main value proposition (required primary image)
 
@@ -76,4 +78,3 @@ filename: `promo-small-440x280.png`.
 - Verify that no personal or booking information is visible.
 - Verify that text remains readable at Store thumbnail size.
 - Verify that no asset suggests affiliation with Google or guarantees a connection.
-
