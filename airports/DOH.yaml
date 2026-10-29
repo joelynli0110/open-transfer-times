@@ -9,12 +9,29 @@ last_reviewed: 2026-10-29
 # basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
 # basis: sourced   = derived from the facts/sources below (list them in 'sources').
 allowances:
-  base_transfer: { minutes: 30, basis: heuristic }
+  base_transfer: { minutes: 30, basis: heuristic, facts: [transfer-hall-walking-times] }
   passport_control: { minutes: 0, basis: heuristic }
-  terminal_change: { minutes: 0, basis: heuristic }
-  security_rescreening: { minutes: 10, basis: heuristic }
+  terminal_change: { minutes: 0, basis: heuristic, facts: [single-terminal] }
+  security_rescreening: { minutes: 10, basis: heuristic, facts: [transfer-security] }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: single-terminal
+    claim: Passengers arrive, transfer and depart in the same terminal building.
+    source: hia-transfers
+  - id: transfer-security
+    claim: Transfer passengers' hand baggage is security screened before they can enter the passenger terminal.
+    source: hia-transfers
+  - id: transfer-hall-walking-times
+    claim: Walking times from the transfer halls to the departure concourses range from about 1 to 14 minutes.
+    source: hia-transfers
+  - id: gate-closure
+    claim: Boarding gates close 20 minutes before the flight's departure time.
+    source: hia-transfers
 
-sources: {}
+sources:
+  hia-transfers:
+    title: Transfers
+    publisher: Hamad International Airport
+    url: https://dohahamadairport.com/airport-guide/at-the-airport/transfers
+    retrieved: 2026-10-29

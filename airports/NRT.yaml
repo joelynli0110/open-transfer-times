@@ -8,13 +8,37 @@ last_reviewed: 2026-10-29
 # Minutes the engine deducts from the scheduled layover.
 # basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
 # basis: sourced   = derived from the facts/sources below (list them in 'sources').
+# Open question: the T3→T1 shuttle bus alone takes 24-28 minutes
+# (inter-terminal-bus), above the 20-minute terminal_change heuristic.
+# Terminal pairs differ a lot; a single per-airport value cannot capture this.
 allowances:
   base_transfer: { minutes: 35, basis: heuristic }
   passport_control: { minutes: 0, basis: heuristic }
-  terminal_change: { minutes: 20, basis: heuristic }
-  security_rescreening: { minutes: 10, basis: heuristic }
+  terminal_change: { minutes: 20, basis: heuristic, facts: [inter-terminal-bus] }
+  security_rescreening: { minutes: 10, basis: heuristic, facts: [transfer-security] }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: transfer-security
+    claim: Connecting passengers already screened at their departure airport must, with some exceptions, be screened again in Japan, including a baggage inspection and body check.
+    source: nrt-security-connection
+  - id: inter-terminal-bus
+    claim: >-
+      Passengers changing terminals take a shuttle bus; approximate rides are T1→T2 8–12 min,
+      T1→T3 12–16 min, T2→T1 12–16 min, T2→T3 about 4 min, T3→T1 24–28 min and T3→T2 about 12 min.
+    source: nrt-inter-inter
+  - id: operating-hours
+    claim: Aircraft operate at Narita only between 06:00 and 24:00, and passengers cannot stay airside outside those hours.
+    source: nrt-inter-inter
 
-sources: {}
+sources:
+  nrt-security-connection:
+    title: Why is security screening required for connecting flights?
+    publisher: Narita International Airport
+    url: https://www.narita-airport.jp/en/airportguide/security/connection/
+    retrieved: 2026-10-29
+  nrt-inter-inter:
+    title: Connection between international flights
+    publisher: Narita International Airport
+    url: https://www.narita-airport.jp/en/airportguide/connect/inter-inter/
+    retrieved: 2026-10-29

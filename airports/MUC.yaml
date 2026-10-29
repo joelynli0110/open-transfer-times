@@ -10,11 +10,31 @@ last_reviewed: 2026-10-29
 # basis: sourced   = derived from the facts/sources below (list them in 'sources').
 allowances:
   base_transfer: { minutes: 30, basis: heuristic }
-  passport_control: { minutes: 20, basis: heuristic }
-  terminal_change: { minutes: 12, basis: heuristic }
+  passport_control: { minutes: 20, basis: heuristic, facts: [schengen-passport-control] }
+  terminal_change: { minutes: 12, basis: heuristic, facts: [inter-terminal-bus] }
   security_rescreening: { minutes: 0, basis: heuristic }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: schengen-passport-control
+    claim: >-
+      Passport control is required when transferring between Schengen and non-Schengen flights; it is
+      usually not required for Schengen to Schengen or for non-Schengen to non-Schengen transfers that
+      stay in the gate area.
+    source: muc-connecting
+  - id: conditional-security
+    claim: Transfer passengers need to pass security control in some cases.
+    source: muc-connecting
+  - id: inter-terminal-bus
+    claim: A free shuttle bus links Terminal 1 and Terminal 2; the ride takes 5 to 7 minutes, running every 10 minutes from 7 a.m. to 5 p.m. and every 20 minutes early morning and evening.
+    source: muc-connecting
+  - id: satellite-train
+    claim: Terminal 2 and the Terminal 2 Satellite are linked by an underground shuttle train that runs every 4 minutes and takes about 1 minute.
+    source: muc-connecting
 
-sources: {}
+sources:
+  muc-connecting:
+    title: Connecting flights
+    publisher: Munich Airport
+    url: https://www.munich-airport.com/connecting-flights-260553
+    retrieved: 2026-10-29

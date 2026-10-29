@@ -306,7 +306,9 @@ function renderCoverage({ profiles }) {
     `- **Coverage** — \`sourced\`: every allowance is backed by a cited fact. \`partial\`: at least one cited fact. \`heuristic\`: rule-of-thumb values only.\n` +
     `- **Sourced minutes** — allowances whose *duration* comes from a source.\n` +
     `- **Steps confirmed** — allowances whose *existence* (e.g. a security re-check) is confirmed by a cited fact, even if the duration is still estimated.\n\n` +
-    `Help wanted: pick an airport below marked \`heuristic\` and add official sources — see [CONTRIBUTING.md](../CONTRIBUTING.md).\n\n` +
+    `Help wanted: add official sources for airports marked \`heuristic\`, confirm more transfer steps, ` +
+    `or replace estimated durations with sourced ones (\`Sourced minutes\`). See [CONTRIBUTING.md](../CONTRIBUTING.md). ` +
+    `Open questions are noted as comments in the airport files.\n\n` +
     `| IATA | Airport | Coverage | Sourced minutes | Steps confirmed | Facts | Sources | Last reviewed |\n` +
     `| --- | --- | --- | --- | --- | --- | --- | --- |\n` +
     `${rows.join("\n")}\n`;

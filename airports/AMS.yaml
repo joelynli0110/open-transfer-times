@@ -8,13 +8,31 @@ last_reviewed: 2026-10-29
 # Minutes the engine deducts from the scheduled layover.
 # basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
 # basis: sourced   = derived from the facts/sources below (list them in 'sources').
+# Open question: security re-screening at AMS depends on where the passenger
+# arrives from (see conditional-security). The engine models a fixed allowance
+# per airport, so security_rescreening stays 0 until route-dependent rules exist.
 allowances:
   base_transfer: { minutes: 30, basis: heuristic }
-  passport_control: { minutes: 20, basis: heuristic }
+  passport_control: { minutes: 20, basis: heuristic, facts: [schengen-passport-control] }
   terminal_change: { minutes: 0, basis: heuristic }
   security_rescreening: { minutes: 0, basis: heuristic }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: schengen-passport-control
+    claim: Passengers transferring between a Schengen and a non-Schengen flight go through passport control again.
+    source: schiphol-transfer-blog
+  - id: conditional-security
+    claim: >-
+      Transfer passengers arriving from the US, Canada, the UK, Ireland, Singapore, Cyprus, a Schengen
+      country or Belgrade do not need to be screened again; Schengen to non-Schengen transfers may also
+      require screening depending on origin and destination.
+    source: schiphol-transfer-blog
 
-sources: {}
+sources:
+  schiphol-transfer-blog:
+    title: All about your transfer at Schiphol
+    publisher: Amsterdam Airport Schiphol
+    url: https://www.schiphol.nl/en/blog/all-about-your-transfer-at-schiphol
+    published: 2023-12-04
+    retrieved: 2026-10-29

@@ -56,7 +56,9 @@
           "passportControl": {
             "minutes": 20,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "schengen-passport-control"
+            ]
           },
           "terminalChange": {
             "minutes": 0,
@@ -69,9 +71,28 @@
             "facts": []
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "schengen-passport-control",
+            "claim": "Passengers transferring between a Schengen and a non-Schengen flight go through passport control again.",
+            "source": "schiphol-transfer-blog"
+          },
+          {
+            "id": "conditional-security",
+            "claim": "Transfer passengers arriving from the US, Canada, the UK, Ireland, Singapore, Cyprus, a Schengen country or Belgrade do not need to be screened again; Schengen to non-Schengen transfers may also require screening depending on origin and destination.",
+            "source": "schiphol-transfer-blog"
+          }
+        ],
+        "sources": {
+          "schiphol-transfer-blog": {
+            "title": "All about your transfer at Schiphol",
+            "publisher": "Amsterdam Airport Schiphol",
+            "url": "https://www.schiphol.nl/en/blog/all-about-your-transfer-at-schiphol",
+            "published": "2023-12-04",
+            "retrieved": "2026-10-29"
+          }
+        },
+        "coverage": "partial"
       },
       "CDG": {
         "iata": "CDG",
@@ -100,9 +121,30 @@
             "facts": []
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "connection-route-checks",
+            "claim": "Connecting passengers follow the signed connection route and pass any applicable border-formality or security checks on the way to the gate.",
+            "source": "airfrance-cdg-connections",
+            "scope": "Published by Air France for connections at Paris airports"
+          },
+          {
+            "id": "short-connection-pass",
+            "claim": "Air France offers a short-connection pass at CDG intended to speed passengers with short connections through the checks.",
+            "source": "airfrance-cdg-connections",
+            "scope": "Air France connections"
+          }
+        ],
+        "sources": {
+          "airfrance-cdg-connections": {
+            "title": "Contrôles, parcours, bagages : votre correspondance à l'aéroport Paris-Charles de Gaulle",
+            "publisher": "Air France",
+            "url": "https://wwws.airfrance.fr/information/aeroport/conseils-correspondances-paris-cdg-ory",
+            "retrieved": "2026-10-29",
+            "note": "The Paris Aéroport operator site did not yield a citable connection page; replace with an operator source when found."
+          }
+        },
+        "coverage": "partial"
       },
       "DOH": {
         "iata": "DOH",
@@ -113,7 +155,9 @@
           "baseTransfer": {
             "minutes": 30,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "transfer-hall-walking-times"
+            ]
           },
           "passportControl": {
             "minutes": 0,
@@ -123,17 +167,49 @@
           "terminalChange": {
             "minutes": 0,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "single-terminal"
+            ]
           },
           "securityRescreening": {
             "minutes": 10,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "transfer-security"
+            ]
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "single-terminal",
+            "claim": "Passengers arrive, transfer and depart in the same terminal building.",
+            "source": "hia-transfers"
+          },
+          {
+            "id": "transfer-security",
+            "claim": "Transfer passengers' hand baggage is security screened before they can enter the passenger terminal.",
+            "source": "hia-transfers"
+          },
+          {
+            "id": "transfer-hall-walking-times",
+            "claim": "Walking times from the transfer halls to the departure concourses range from about 1 to 14 minutes.",
+            "source": "hia-transfers"
+          },
+          {
+            "id": "gate-closure",
+            "claim": "Boarding gates close 20 minutes before the flight's departure time.",
+            "source": "hia-transfers"
+          }
+        ],
+        "sources": {
+          "hia-transfers": {
+            "title": "Transfers",
+            "publisher": "Hamad International Airport",
+            "url": "https://dohahamadairport.com/airport-guide/at-the-airport/transfers",
+            "retrieved": "2026-10-29"
+          }
+        },
+        "coverage": "partial"
       },
       "DXB": {
         "iata": "DXB",
@@ -162,9 +238,27 @@
             "facts": []
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "separate-ticket-recheck",
+            "claim": "Passengers on separate tickets who do not need a visa (or hold a Dubai visa) must clear passport control, collect their bags and check in again for the connecting flight.",
+            "source": "dxb-transfers"
+          },
+          {
+            "id": "airport-trains",
+            "claim": "Terminal 1 D gates and Terminal 3 A gates are reached by a short airport train ride; Terminal 3 B and C gates are connected on foot.",
+            "source": "dxb-transfers"
+          }
+        ],
+        "sources": {
+          "dxb-transfers": {
+            "title": "Transfers",
+            "publisher": "Dubai Airports",
+            "url": "https://dubaiairports.ae/information/transfers",
+            "retrieved": "2026-10-29"
+          }
+        },
+        "coverage": "partial"
       },
       "FRA": {
         "iata": "FRA",
@@ -277,17 +371,39 @@
           "terminalChange": {
             "minutes": 20,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "international-transit-bus"
+            ]
           },
           "securityRescreening": {
             "minutes": 10,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "transit-security-checkpoint"
+            ]
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "international-transit-bus",
+            "claim": "International-to-international transfers between Terminal 2 and Terminal 3 use a dedicated international transit bus.",
+            "source": "hnd-int-int"
+          },
+          {
+            "id": "transit-security-checkpoint",
+            "claim": "Passengers arriving at Terminal 3 on the transit bus are guided to the international transit security checkpoint.",
+            "source": "hnd-int-int"
+          }
+        ],
+        "sources": {
+          "hnd-int-int": {
+            "title": "International to International",
+            "publisher": "Tokyo International Airport (Haneda)",
+            "url": "https://tokyo-haneda.com/en/flight/transit/int_int.html",
+            "retrieved": "2026-10-29"
+          }
+        },
+        "coverage": "partial"
       },
       "ICN": {
         "iata": "ICN",
@@ -349,7 +465,9 @@
           "passportControl": {
             "minutes": 0,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "single-ticket-no-passport"
+            ]
           },
           "terminalChange": {
             "minutes": 10,
@@ -362,9 +480,24 @@
             "facts": []
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "single-ticket-no-passport",
+            "claim": "Passengers on a single-ticket connection from one international flight to another do not go through further passport procedures and proceed to the boarding gate.",
+            "source": "turkish-transfer-faq",
+            "scope": "Single-ticket connections involving Turkish Airlines"
+          }
+        ],
+        "sources": {
+          "turkish-transfer-faq": {
+            "title": "Transfer and transit passengers",
+            "publisher": "Turkish Airlines",
+            "url": "https://www.turkishairlines.com/en-br/any-questions/transfer-transit-passengers",
+            "retrieved": "2026-10-29",
+            "note": "The istairport.com transfer guide could not be retrieved; replace with an operator source when available."
+          }
+        },
+        "coverage": "partial"
       },
       "LHR": {
         "iata": "LHR",
@@ -438,12 +571,16 @@
           "passportControl": {
             "minutes": 20,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "schengen-passport-control"
+            ]
           },
           "terminalChange": {
             "minutes": 12,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "inter-terminal-bus"
+            ]
           },
           "securityRescreening": {
             "minutes": 0,
@@ -451,9 +588,37 @@
             "facts": []
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "schengen-passport-control",
+            "claim": "Passport control is required when transferring between Schengen and non-Schengen flights; it is usually not required for Schengen to Schengen or for non-Schengen to non-Schengen transfers that stay in the gate area.",
+            "source": "muc-connecting"
+          },
+          {
+            "id": "conditional-security",
+            "claim": "Transfer passengers need to pass security control in some cases.",
+            "source": "muc-connecting"
+          },
+          {
+            "id": "inter-terminal-bus",
+            "claim": "A free shuttle bus links Terminal 1 and Terminal 2; the ride takes 5 to 7 minutes, running every 10 minutes from 7 a.m. to 5 p.m. and every 20 minutes early morning and evening.",
+            "source": "muc-connecting"
+          },
+          {
+            "id": "satellite-train",
+            "claim": "Terminal 2 and the Terminal 2 Satellite are linked by an underground shuttle train that runs every 4 minutes and takes about 1 minute.",
+            "source": "muc-connecting"
+          }
+        ],
+        "sources": {
+          "muc-connecting": {
+            "title": "Connecting flights",
+            "publisher": "Munich Airport",
+            "url": "https://www.munich-airport.com/connecting-flights-260553",
+            "retrieved": "2026-10-29"
+          }
+        },
+        "coverage": "partial"
       },
       "NRT": {
         "iata": "NRT",
@@ -474,17 +639,50 @@
           "terminalChange": {
             "minutes": 20,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "inter-terminal-bus"
+            ]
           },
           "securityRescreening": {
             "minutes": 10,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "transfer-security"
+            ]
           }
         },
-        "facts": [],
-        "sources": {},
-        "coverage": "heuristic"
+        "facts": [
+          {
+            "id": "transfer-security",
+            "claim": "Connecting passengers already screened at their departure airport must, with some exceptions, be screened again in Japan, including a baggage inspection and body check.",
+            "source": "nrt-security-connection"
+          },
+          {
+            "id": "inter-terminal-bus",
+            "claim": "Passengers changing terminals take a shuttle bus; approximate rides are T1→T2 8–12 min, T1→T3 12–16 min, T2→T1 12–16 min, T2→T3 about 4 min, T3→T1 24–28 min and T3→T2 about 12 min.",
+            "source": "nrt-inter-inter"
+          },
+          {
+            "id": "operating-hours",
+            "claim": "Aircraft operate at Narita only between 06:00 and 24:00, and passengers cannot stay airside outside those hours.",
+            "source": "nrt-inter-inter"
+          }
+        ],
+        "sources": {
+          "nrt-security-connection": {
+            "title": "Why is security screening required for connecting flights?",
+            "publisher": "Narita International Airport",
+            "url": "https://www.narita-airport.jp/en/airportguide/security/connection/",
+            "retrieved": "2026-10-29"
+          },
+          "nrt-inter-inter": {
+            "title": "Connection between international flights",
+            "publisher": "Narita International Airport",
+            "url": "https://www.narita-airport.jp/en/airportguide/connect/inter-inter/",
+            "retrieved": "2026-10-29"
+          }
+        },
+        "coverage": "partial"
       },
       "SIN": {
         "iata": "SIN",

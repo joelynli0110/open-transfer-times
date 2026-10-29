@@ -15,6 +15,20 @@ allowances:
   security_rescreening: { minutes: 10, basis: heuristic }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: connection-route-checks
+    claim: Connecting passengers follow the signed connection route and pass any applicable border-formality or security checks on the way to the gate.
+    source: airfrance-cdg-connections
+    scope: Published by Air France for connections at Paris airports
+  - id: short-connection-pass
+    claim: Air France offers a short-connection pass at CDG intended to speed passengers with short connections through the checks.
+    source: airfrance-cdg-connections
+    scope: Air France connections
 
-sources: {}
+sources:
+  airfrance-cdg-connections:
+    title: "Contrôles, parcours, bagages : votre correspondance à l'aéroport Paris-Charles de Gaulle"
+    publisher: Air France
+    url: https://wwws.airfrance.fr/information/aeroport/conseils-correspondances-paris-cdg-ory
+    retrieved: 2026-10-29
+    note: The Paris Aéroport operator site did not yield a citable connection page; replace with an operator source when found.

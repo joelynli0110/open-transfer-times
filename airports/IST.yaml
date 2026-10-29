@@ -10,11 +10,21 @@ last_reviewed: 2026-10-29
 # basis: sourced   = derived from the facts/sources below (list them in 'sources').
 allowances:
   base_transfer: { minutes: 35, basis: heuristic }
-  passport_control: { minutes: 0, basis: heuristic }
+  passport_control: { minutes: 0, basis: heuristic, facts: [single-ticket-no-passport] }
   terminal_change: { minutes: 10, basis: heuristic }
   security_rescreening: { minutes: 10, basis: heuristic }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: single-ticket-no-passport
+    claim: Passengers on a single-ticket connection from one international flight to another do not go through further passport procedures and proceed to the boarding gate.
+    source: turkish-transfer-faq
+    scope: Single-ticket connections involving Turkish Airlines
 
-sources: {}
+sources:
+  turkish-transfer-faq:
+    title: Transfer and transit passengers
+    publisher: Turkish Airlines
+    url: https://www.turkishairlines.com/en-br/any-questions/transfer-transit-passengers
+    retrieved: 2026-10-29
+    note: The istairport.com transfer guide could not be retrieved; replace with an operator source when available.

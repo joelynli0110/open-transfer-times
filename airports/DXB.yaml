@@ -15,6 +15,17 @@ allowances:
   security_rescreening: { minutes: 10, basis: heuristic }
 
 # Verifiable statements about the transfer process, each tied to a source.
-facts: []
+facts:
+  - id: separate-ticket-recheck
+    claim: Passengers on separate tickets who do not need a visa (or hold a Dubai visa) must clear passport control, collect their bags and check in again for the connecting flight.
+    source: dxb-transfers
+  - id: airport-trains
+    claim: Terminal 1 D gates and Terminal 3 A gates are reached by a short airport train ride; Terminal 3 B and C gates are connected on foot.
+    source: dxb-transfers
 
-sources: {}
+sources:
+  dxb-transfers:
+    title: Transfers
+    publisher: Dubai Airports
+    url: https://dubaiairports.ae/information/transfers
+    retrieved: 2026-10-29

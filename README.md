@@ -37,9 +37,10 @@ carries a `basis`:
 - `heuristic` — a rule-of-thumb estimate, not yet backed by a source;
 - `sourced` — derived from a cited fact.
 
-Facts confirm transfer steps (for example that Heathrow, Hong Kong, Changi and
-Incheon screen transfer passengers again) and link to the official page they
-come from. [`airports/COVERAGE.md`](airports/COVERAGE.md) shows how well each
+All 13 profiles cite official airport or airline pages. Facts confirm transfer
+steps — for example that Heathrow, Hong Kong, Changi, Incheon, Narita and Doha
+screen transfer passengers again, or how long Munich and Narita inter-terminal
+buses take — while most durations remain estimates. [`airports/COVERAGE.md`](airports/COVERAGE.md) shows how well each
 airport is sourced. To add or improve an airport, see
 [CONTRIBUTING.md](CONTRIBUTING.md) — no code required.
 
