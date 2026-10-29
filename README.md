@@ -14,6 +14,7 @@ publish openly, cites every fact, and marks every estimate as an estimate.
 | --- | --- |
 | [`airports/`](airports) | One YAML file per airport: transfer allowances, sourced facts, citations. **Contributions welcome.** |
 | [`packages/core`](packages/core) | `open-transfer-times`: dependency-free engine that turns an itinerary into an explained assessment. |
+| [`packages/mcp`](packages/mcp) | `open-transfer-times-mcp`: MCP server so AI agents can check and rank connections, with cited sources. |
 | [`extension/`](extension) | Chrome extension that runs the engine on the itinerary open in Google Flights (beta). |
 
 ```js

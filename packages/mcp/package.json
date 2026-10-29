@@ -1,0 +1,35 @@
+{
+  "name": "open-transfer-times-mcp",
+  "version": "0.1.0",
+  "description": "MCP server that lets AI agents check whether a flight connection is comfortable, tight or risky, with cited airport facts.",
+  "bin": {
+    "open-transfer-times-mcp": "src/cli.js"
+  },
+  "main": "src/server.js",
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "flights",
+    "layover",
+    "connection",
+    "airport",
+    "agent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joelynli0110/open-transfer-times.git",
+    "directory": "packages/mcp"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "open-transfer-times": "^0.1.0",
+    "zod": "^4.6.7"
+  }
+}
