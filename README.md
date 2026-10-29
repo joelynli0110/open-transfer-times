@@ -1,21 +1,68 @@
-# Connection Quality for Google Flights
+# Connection Risk
 
-See whether an international flight connection is comfortable, tight, or risky before you book.
+**Is this flight connection comfortable, tight, or risky?** An open, sourced
+dataset of airport transfer rules, a deterministic engine that explains its
+verdict, and a Google Flights extension built on top.
 
-Connection Quality is a small Chrome extension that adds structural connection guidance directly to Google Flights. It reads the one-stop itinerary currently open on the page, requires confirmation whenever extraction or ticket status is uncertain, and returns an explainable `Comfortable`, `Reasonable`, `Tight`, or `Risky` assessment.
+Airlines and booking systems decide whether a connection is feasible using
+*minimum connection times* (MCT) — commercial data sold by IATA and schedule
+providers. Open flight-search tools can find itineraries but cannot say whether
+a layover is realistic. This project collects what airports and airlines
+publish openly, cites every fact, and marks every estimate as an estimate.
 
-It evaluates booking-time connection quality from the scheduled itinerary structure.
+| Part | What it is |
+| --- | --- |
+| [`airports/`](airports) | One YAML file per airport: transfer allowances, sourced facts, citations. **Contributions welcome.** |
+| [`packages/core`](packages/core) | `connection-risk-core`: dependency-free engine that turns an itinerary into an explained assessment. |
+| [`extension/`](extension) | Chrome extension that runs the engine on the itinerary open in Google Flights (beta). |
 
-## Alpha
+```js
+const { assessConnection } = require("connection-risk-core");
 
-The extension is currently in beta testing.
+assessConnection(
+  { segments: [
+    { origin: "BER", destination: "LHR", arrivalTime: "2026-09-20T10:00:00" },
+    { origin: "LHR", destination: "PVG", departureTime: "2026-09-20T11:30:00" }
+  ] },
+  { ticketStatus: "protected" }
+).quality; // "reasonable" — 90 min layover, 55 min of transfer steps
+```
+
+## Airport data
+
+Thirteen hub airports have their own profile; every other airport falls back to
+a transparent [standard baseline](airports/_baseline.yaml). Each minute value
+carries a `basis`:
+
+- `heuristic` — a rule-of-thumb estimate, not yet backed by a source;
+- `sourced` — derived from a cited fact.
+
+Facts confirm transfer steps (for example that Heathrow, Hong Kong, Changi and
+Incheon screen transfer passengers again) and link to the official page they
+come from. [`airports/COVERAGE.md`](airports/COVERAGE.md) shows how well each
+airport is sourced. To add or improve an airport, see
+[CONTRIBUTING.md](CONTRIBUTING.md) — no code required.
+
+This is not an official MCT table, and it does not predict delays.
+
+## How the assessment works
+
+The model is deterministic. Structural feasibility starts with the scheduled
+layover and deducts the physical transfer steps that apply at the connection
+airport: a base transfer allowance, Schengen border control when the transfer
+crosses the Schengen border at a Schengen airport, terminal changes when known,
+security re-screening, and explicit baggage re-check. The remaining margin maps
+to `comfortable` (≥ 45 min), `reasonable` (≥ 25), `tight` (≥ 5) or `risky`.
+
+Ticket protection is evaluated separately as disruption exposure: separate
+tickets change the warning and verdict, but do not consume physical transfer
+time by themselves.
+
+## Google Flights extension (beta)
 
 Google Flights desktop only. Chrome Web Store listing: **not yet published**.
-
 See the [privacy policy](PRIVACY.md) and
 [Chrome Web Store submission materials](docs/chrome-web-store/).
-
-## MVP experience
 
 1. Open and expand a one-stop itinerary on Google Flights.
 2. Select the Connection Quality badge in the lower-right corner.
@@ -23,36 +70,14 @@ See the [privacy policy](PRIVACY.md) and
 4. If route extraction needs confirmation—or ticket type is unknown—the extension shows the detected route and asks for **One protected ticket**, **Separate tickets**, or **Not sure** before analysis.
 5. Results show the scheduled layover, qualitative main factors, ticket protection, and a verdict. Heuristic process allowances are not presented as measured passenger-specific times.
 
-The model is deterministic. Structural feasibility starts with scheduled layover time and accounts for physical airport processes such as Schengen border control at Schengen connection airports, terminal/security steps, and explicit baggage re-check requirements. Ticket protection is evaluated separately as disruption exposure: separate tickets change the warning and verdict, but do not consume physical transfer time by themselves.
-
-## Supported airports
-
-Airport-specific transfer assumptions currently exist for:
-
-- Amsterdam Schiphol (AMS)
-- Dubai (DXB)
-- Doha Hamad (DOH)
-- Frankfurt (FRA)
-- Hong Kong (HKG)
-- Istanbul (IST)
-- London Heathrow (LHR)
-- Munich (MUC)
-- Paris Charles de Gaulle (CDG)
-- Seoul Incheon (ICN)
-- Singapore Changi (SIN)
-- Tokyo Haneda (HND)
-- Tokyo Narita (NRT)
-
-The bundled public airport catalog supplies names for more than 9,000 IATA-coded airports. Airports without a defensible airport-specific transfer rule use a transparent standard international-transfer baseline; name coverage never implies model-specific transfer accuracy.
-
 ## Current limitations
 
 - Google Flights has no stable public DOM contract. Detection can require fixture updates when its accessible markup changes.
 - The parser targets one expanded, one-stop desktop itinerary on `www.google.com/travel/flights`.
 - If only a generic container or page accessibility text is available, the extension may extract the route for confirmation but forces ticket type to `unknown`; it never derives ticket protection from page-wide text and never auto-analyzes that fallback.
 - If multiple viable itinerary candidates remain without a unique booking, active-dialog, selected, or expanded signal, detection fails closed and asks the user to open one itinerary.
-- Airport-specific rules focus on the hubs above; other airports use the standard international-transfer baseline.
-- The small Schengen/non-Schengen region map covers common MVP routes, not every airport.
+- Airport-specific rules cover 13 hubs; other airports use the standard international-transfer baseline. Most minute values are still heuristic (see [coverage](airports/COVERAGE.md)).
+- The Schengen/non-Schengen airport map in [`regions/schengen.yaml`](regions/schengen.yaml) covers common routes, not every airport.
 - Schengen passport-control logic applies only when the connection airport is itself in Schengen; it does not claim to model every jurisdiction's transit-immigration rules.
 - Terminal changes are used only when known; the extension does not guess missing terminal data.
 - Airport, terminal, and gate values are displayed only when supplied by the open itinerary. Gates are usually assigned near departure, so an absent gate is shown as not published rather than guessed.
@@ -69,17 +94,18 @@ Manifest V3 requests only `activeTab`, used when the user selects the toolbar ac
 ```text
 Google Flights
 → site adapter registry
-→ NormalizedItinerary
-→ deterministic Connection Quality Engine
+→ NormalizedItinerary                 (packages/core)
+→ deterministic Connection Quality Engine  (packages/core, rules from airports/*.yaml)
 → ConnectionAssessment
 → Chrome Extension UI
 ```
 
 - `extension/src/adapters/googleFlights/` contains all Google Flights parsing and selectors.
-- `extension/src/data/airport-catalog.js` is generated from the public-domain OurAirports dataset.
-- `extension/src/models/normalized-itinerary.js` owns the stable source-neutral segment model.
-- `extension/src/engine/airport-rules.js` contains the extensible public airport assumptions.
-- `extension/src/engine/connection-quality.js` contains DOM-free assessment logic.
+- `airports/*.yaml` and `regions/schengen.yaml` are the editable transfer dataset; `npm run airports:build` validates them and generates `packages/core/src/data/airport-data.generated.js`.
+- `packages/core/src/airport-catalog.js` is generated from the public-domain OurAirports dataset.
+- `packages/core/src/itinerary.js` owns the stable source-neutral segment model.
+- `packages/core/src/airport-rules.js` adapts the generated dataset to engine rules.
+- `packages/core/src/engine.js` contains DOM-free assessment logic. `npm run build` copies the core files into `dist/core/`, so the extension and the library ship identical code.
 - `extension/src/content.js` renders the lightweight badge, confirmation flow, and detail panel.
 - `extension/src/analytics.js` defines the provider-free event seam.
 
@@ -102,10 +128,10 @@ npm install
 npm run build
 ```
 
-Normal installation and production builds use the committed runtime catalog at `extension/src/data/airport-catalog.js`; they do not require `data/public/` or any local dataset. Developers may optionally refresh that catalog with:
+Normal installation and production builds use the committed runtime catalog at `packages/core/src/airport-catalog.js`; they do not require `data/public/` or any local dataset. Developers may optionally refresh that catalog with:
 
 ```powershell
-npm run airports
+npm run airports:catalog
 ```
 
 This maintenance command requires `data/public/airports.csv`. The source CSV is intentionally ignored and is not needed for `npm install`, `npm run check`, or `npm run build`.
@@ -134,7 +160,7 @@ The generated ZIP is written to `release/` with `manifest.json` at the archive r
 npm run check
 ```
 
-The release gate runs syntax checks, all extension tests, and the production extension build. The test runner is compatible with the declared Node.js 20+ range and does not depend on newer `node --test` isolation flags.
+The release gate validates the airport dataset (and that generated files are current), runs syntax checks, the core and extension tests, and the production extension build. The test runner is compatible with the declared Node.js 20+ range and does not depend on newer `node --test` isolation flags.
 
 Run the preserved Python research suite separately if you change legacy code:
 
@@ -142,7 +168,7 @@ Run the preserved Python research suite separately if you change legacy code:
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-Node tests cover normalized-model validation, selected-itinerary ticket scoping, deterministic structural quality bands, protection exposure, explicit baggage re-check processes, DST-safe wall-clock arithmetic, confirmation gating, unsupported-airport fallback, overnight parsing, localized time formats, booking URL extraction, and defensive parser failures. They use extracted text/DOM stubs and never call live Google Flights.
+Node tests cover airport-dataset validation and provenance, normalized-model validation, selected-itinerary ticket scoping, deterministic structural quality bands, protection exposure, explicit baggage re-check processes, DST-safe wall-clock arithmetic, confirmation gating, unsupported-airport fallback, overnight parsing, localized time formats, booking URL extraction, and defensive parser failures. They use extracted text/DOM stubs and never call live Google Flights.
 
 ## Alpha manual checks
 

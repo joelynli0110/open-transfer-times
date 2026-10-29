@@ -1,0 +1,34 @@
+# Transfer profile for London Heathrow (LHR).
+# Field reference: CONTRIBUTING.md#airport-file-format
+iata: LHR
+name: London Heathrow
+country: GB
+last_reviewed: 2026-10-29
+
+# Minutes the engine deducts from the scheduled layover.
+# basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
+# basis: sourced   = derived from the facts/sources below (list them in 'sources').
+allowances:
+  base_transfer: { minutes: 40, basis: heuristic }
+  passport_control: { minutes: 0, basis: heuristic }
+  terminal_change: { minutes: 25, basis: heuristic, facts: [inter-terminal-bus] }
+  security_rescreening: { minutes: 15, basis: heuristic, facts: [transfer-security] }
+
+# Verifiable statements about the transfer process, each tied to a source.
+facts:
+  - id: transfer-security
+    claim: All connecting passengers go through security screening again at Heathrow.
+    source: heathrow-connecting
+  - id: inter-terminal-bus
+    claim: Connections between different terminals use a free transfer bus that runs about every 10 minutes.
+    source: heathrow-connecting
+  - id: no-published-mct
+    claim: Heathrow does not publish a minimum connection time; travellers are told to check their airline's figure, which does not apply to separately booked flights.
+    source: heathrow-connecting
+
+sources:
+  heathrow-connecting:
+    title: Connecting flights
+    publisher: Heathrow Airport
+    url: https://www.heathrow.com/connecting-flights
+    retrieved: 2026-10-29

@@ -3,7 +3,7 @@
     ? require("./airport-rules.js")
     : root.ConnectionQualityAirportRules;
   const catalog = typeof module === "object" && module.exports
-    ? require("../data/airport-catalog.js")
+    ? require("./airport-catalog.js")
     : root.ConnectionQualityAirportCatalog;
   const api = factory(rules, catalog);
   if (typeof module === "object" && module.exports) module.exports = api;
@@ -11,8 +11,7 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function createEngine(rulesModule, airportCatalog) {
   "use strict";
 
-  const { AIRPORT_RULES, travelZone } = rulesModule;
-  const FALLBACK_RULE = Object.freeze({ baseTransferMinutes: 35, passportMinutes: 20, terminalChangeMinutes: 15, securityMinutes: 0 });
+  const { AIRPORT_RULES, FALLBACK_RULE, travelZone } = rulesModule;
 
   function wallClockTimestamp(value) {
     const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);

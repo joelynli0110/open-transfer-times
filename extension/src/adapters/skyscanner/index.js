@@ -3,7 +3,7 @@
     ? require("./parser.js")
     : root.SkyscannerParser;
   const models = typeof module === "object" && module.exports
-    ? require("../../models/normalized-itinerary.js")
+    ? require("connection-risk-core/src/itinerary.js")
     : root.ConnectionQualityModels;
   const api = factory(parser, models);
   if (typeof module === "object" && module.exports) module.exports = api;

@@ -1,0 +1,17 @@
+# Standard international-transfer baseline.
+# Used for every connection airport that has no file of its own in this directory.
+# These are deliberately generic rule-of-thumb values; an airport-specific file
+# always takes precedence.
+iata: _baseline
+name: Standard international transfer
+last_reviewed: 2026-10-29
+
+allowances:
+  base_transfer: { minutes: 35, basis: heuristic }
+  passport_control: { minutes: 20, basis: heuristic }
+  terminal_change: { minutes: 15, basis: heuristic }
+  security_rescreening: { minutes: 0, basis: heuristic }
+
+facts: []
+
+sources: {}

@@ -1,0 +1,28 @@
+# Transfer profile for Singapore Changi (SIN).
+# Field reference: CONTRIBUTING.md#airport-file-format
+iata: SIN
+name: Singapore Changi
+country: SG
+last_reviewed: 2026-10-29
+
+# Minutes the engine deducts from the scheduled layover.
+# basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
+# basis: sourced   = derived from the facts/sources below (list them in 'sources').
+allowances:
+  base_transfer: { minutes: 30, basis: heuristic }
+  passport_control: { minutes: 0, basis: heuristic }
+  terminal_change: { minutes: 15, basis: heuristic }
+  security_rescreening: { minutes: 10, basis: heuristic, facts: [transfer-security] }
+
+# Verifiable statements about the transfer process, each tied to a source.
+facts:
+  - id: transfer-security
+    claim: Transit passengers go through security screening before heading to the boarding gate of the onward flight.
+    source: changi-transit
+
+sources:
+  changi-transit:
+    title: Transit guide
+    publisher: Changi Airport
+    url: https://www.changiairport.com/en/fly/transit-guide.html
+    retrieved: 2026-10-29

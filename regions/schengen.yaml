@@ -1,0 +1,106 @@
+# Schengen membership used to decide whether a transfer crosses the Schengen
+# border (and therefore needs passport control).
+#
+# countries: authoritative membership list, by ISO 3166-1 alpha-2 code.
+# airports:  IATA codes the engine currently classifies. Until the airport
+#            catalog carries a country for every airport, the engine can only
+#            classify airports listed here; everything else is "unknown".
+#            Each airport below must belong to one of the listed countries.
+
+countries:
+  AT: Austria
+  BE: Belgium
+  BG: Bulgaria
+  HR: Croatia
+  CZ: Czech Republic
+  DK: Denmark
+  EE: Estonia
+  FI: Finland
+  FR: France
+  DE: Germany
+  GR: Greece
+  HU: Hungary
+  IS: Iceland
+  IT: Italy
+  LV: Latvia
+  LI: Liechtenstein
+  LT: Lithuania
+  LU: Luxembourg
+  MT: Malta
+  NL: Netherlands
+  NO: Norway
+  PL: Poland
+  PT: Portugal
+  RO: Romania
+  SK: Slovakia
+  SI: Slovenia
+  ES: Spain
+  SE: Sweden
+  CH: Switzerland
+
+source:
+  title: Schengen
+  publisher: Swiss State Secretariat for Migration (SEM)
+  url: https://www.sem.admin.ch/sem/en/home/themen/einreise/fachinfo-einreise/schengen.html
+  note: Page lists 29 Schengen member states (last modified 12.10.2025). Cyprus and Ireland are EU members outside Schengen.
+  retrieved: 2026-10-29
+
+airports:
+  schengen:
+    AMS: NL
+    ARN: SE
+    ATH: GR
+    BCN: ES
+    BER: DE
+    BLL: DK
+    BRU: BE
+    BUD: HU
+    CDG: FR
+    CPH: DK
+    DUS: DE
+    FCO: IT
+    FRA: DE
+    GVA: CH
+    HAM: DE
+    HEL: FI
+    KEF: IS
+    LIS: PT
+    LYS: FR
+    MAD: ES
+    MUC: DE
+    MXP: IT
+    NAP: IT
+    NCE: FR
+    OSL: "NO"
+    PRG: CZ
+    RIX: LV
+    STR: DE
+    TLL: EE
+    VCE: IT
+    VIE: AT
+    WAW: PL
+    ZRH: CH
+  non_schengen:
+    - ATL
+    - BKK
+    - BOS
+    - DEL
+    - DOH
+    - DXB
+    - EWR
+    - HKG
+    - HND
+    - ICN
+    - IST
+    - JFK
+    - LAX
+    - LHR
+    - NRT
+    - ORD
+    - PEK
+    - PVG
+    - SEA
+    - SIN
+    - SFO
+    - SYD
+    - YYZ

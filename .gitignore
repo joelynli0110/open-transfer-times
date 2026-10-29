@@ -16,3 +16,4 @@ data/public/
 data/generated/
 benchmark/output/
 docs/roadmap.md
+node_modules/

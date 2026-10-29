@@ -1,0 +1,26 @@
+{
+  "name": "connection-risk-core",
+  "version": "0.1.0",
+  "description": "Deterministic, explainable flight-connection assessment backed by an open, sourced airport transfer dataset.",
+  "main": "src/index.js",
+  "files": [
+    "src"
+  ],
+  "keywords": [
+    "flights",
+    "layover",
+    "connection",
+    "airport",
+    "transfer",
+    "minimum-connection-time"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joelynli0110/connection-risk.git",
+    "directory": "packages/core"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { createNormalizedItinerary } = require("../src/models/normalized-itinerary.js");
+const { createNormalizedItinerary } = require("../src/itinerary.js");
 
 test("normalizes connected source-neutral segments", () => {
   const result = createNormalizedItinerary({ source: "google-flights", segments: [{ origin: "ber", destination: "fra", arrivalGate: "A12" }, { origin: "FRA", destination: "pvg" }] });

@@ -3,7 +3,7 @@ const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
 const input = path.join(root, "data", "public", "airports.csv");
-const output = path.join(root, "extension", "src", "data", "airport-catalog.js");
+const output = path.join(root, "packages", "core", "src", "airport-catalog.js");
 
 function parseCsvLine(line) {
   const values = [];

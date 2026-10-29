@@ -2,14 +2,24 @@
   "name": "connection-quality-flight-extension",
   "version": "0.1.0",
   "private": true,
-  "description": "Connection quality guidance for Google Flights.",
+  "description": "Open airport transfer dataset, connection-assessment engine, and Google Flights extension.",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "airports": "node scripts/generate-airport-catalog.js",
+    "airports:build": "node scripts/build-airport-data.js",
+    "airports:check": "node scripts/build-airport-data.js --check",
+    "airports:catalog": "node scripts/generate-airport-catalog.js",
     "build": "node scripts/build-extension.js",
     "package:chrome": "npm run build && node scripts/package-chrome-extension.js",
-    "test": "node extension/tests/run-tests.js",
+    "test": "node packages/core/test/run-tests.js && node extension/tests/run-tests.js",
     "lint": "node scripts/check-js.js",
-    "check": "npm run lint && npm test && npm run build"
+    "check": "npm run airports:check && npm run lint && npm test && npm run build"
   },
-  "engines": { "node": ">=20" }
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "yaml": "^2.9.1"
+  }
 }

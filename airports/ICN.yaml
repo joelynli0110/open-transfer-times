@@ -1,0 +1,28 @@
+# Transfer profile for Seoul Incheon (ICN).
+# Field reference: CONTRIBUTING.md#airport-file-format
+iata: ICN
+name: Seoul Incheon
+country: KR
+last_reviewed: 2026-10-29
+
+# Minutes the engine deducts from the scheduled layover.
+# basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
+# basis: sourced   = derived from the facts/sources below (list them in 'sources').
+allowances:
+  base_transfer: { minutes: 30, basis: heuristic }
+  passport_control: { minutes: 0, basis: heuristic }
+  terminal_change: { minutes: 15, basis: heuristic }
+  security_rescreening: { minutes: 10, basis: heuristic, facts: [t1-transfer-security] }
+
+# Verifiable statements about the transfer process, each tied to a source.
+facts:
+  - id: t1-transfer-security
+    claim: A Terminal 1 to Terminal 1 transfer consists of transfer security screening followed by boarding.
+    source: icn-transfer-t1
+
+sources:
+  icn-transfer-t1:
+    title: Transfer Stage (Terminal 1)
+    publisher: Incheon International Airport
+    url: https://www.airport.kr/ap_en/1456/subview.do
+    retrieved: 2026-10-29

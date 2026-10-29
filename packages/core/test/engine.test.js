@@ -1,6 +1,6 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { assessConnection, minutesBetween } = require("../src/engine/connection-quality.js");
+const { assessConnection, minutesBetween } = require("../src/engine.js");
 
 function itinerary(origin, connection, destination, arrival, departure, extra = {}) {
   return {

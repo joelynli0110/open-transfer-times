@@ -37,7 +37,13 @@ def test_extension_manifest_references_existing_files() -> None:
         referenced.extend(content_script.get("js", []))
         referenced.extend(content_script.get("css", []))
 
-    assert all((EXTENSION / path).is_file() for path in referenced)
+    # core/ paths are served from the standalone engine package (see scripts/build-extension.js).
+    def source_for(path: str) -> Path:
+        if path.startswith("core/"):
+            return ROOT / "packages" / "core" / "src" / path.removeprefix("core/")
+        return EXTENSION / path
+
+    assert all(source_for(path).is_file() for path in referenced)
     assert all((EXTENSION / path).is_file() for path in manifest["icons"].values())
     assert "background" not in manifest
 

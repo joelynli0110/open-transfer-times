@@ -24,10 +24,11 @@
     {
       "matches": ["https://www.google.com/travel/flights*"],
       "js": [
-        "src/models/normalized-itinerary.js",
-        "src/data/airport-catalog.js",
-        "src/engine/airport-rules.js",
-        "src/engine/connection-quality.js",
+        "core/itinerary.js",
+        "core/airport-catalog.js",
+        "core/data/airport-data.generated.js",
+        "core/airport-rules.js",
+        "core/engine.js",
         "src/adapters/googleFlights/parser.js",
         "src/adapters/googleFlights/index.js",
         "src/adapters/index.js",

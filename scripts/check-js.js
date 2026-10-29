@@ -2,7 +2,14 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const roots = [path.resolve(__dirname, "..", "extension", "src"), __dirname];
+const repository = path.resolve(__dirname, "..");
+const roots = [
+  path.join(repository, "extension", "src"),
+  path.join(repository, "extension", "tests"),
+  path.join(repository, "packages", "core", "src"),
+  path.join(repository, "packages", "core", "test"),
+  __dirname
+];
 const files = [];
 function visit(directory) {
   for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {

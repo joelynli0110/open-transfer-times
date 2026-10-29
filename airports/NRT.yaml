@@ -1,0 +1,20 @@
+# Transfer profile for Tokyo Narita (NRT).
+# Field reference: CONTRIBUTING.md#airport-file-format
+iata: NRT
+name: Tokyo Narita
+country: JP
+last_reviewed: 2026-10-29
+
+# Minutes the engine deducts from the scheduled layover.
+# basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
+# basis: sourced   = derived from the facts/sources below (list them in 'sources').
+allowances:
+  base_transfer: { minutes: 35, basis: heuristic }
+  passport_control: { minutes: 0, basis: heuristic }
+  terminal_change: { minutes: 20, basis: heuristic }
+  security_rescreening: { minutes: 10, basis: heuristic }
+
+# Verifiable statements about the transfer process, each tied to a source.
+facts: []
+
+sources: {}
