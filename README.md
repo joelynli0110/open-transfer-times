@@ -1,4 +1,4 @@
-# Connection Risk
+# Open Transfer Times
 
 **Is this flight connection comfortable, tight, or risky?** An open, sourced
 dataset of airport transfer rules, a deterministic engine that explains its
@@ -13,11 +13,11 @@ publish openly, cites every fact, and marks every estimate as an estimate.
 | Part | What it is |
 | --- | --- |
 | [`airports/`](airports) | One YAML file per airport: transfer allowances, sourced facts, citations. **Contributions welcome.** |
-| [`packages/core`](packages/core) | `connection-risk-core`: dependency-free engine that turns an itinerary into an explained assessment. |
+| [`packages/core`](packages/core) | `open-transfer-times`: dependency-free engine that turns an itinerary into an explained assessment. |
 | [`extension/`](extension) | Chrome extension that runs the engine on the itinerary open in Google Flights (beta). |
 
 ```js
-const { assessConnection } = require("connection-risk-core");
+const { assessConnection } = require("open-transfer-times");
 
 assessConnection(
   { segments: [

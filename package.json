@@ -1,5 +1,5 @@
 {
-  "name": "connection-quality-flight-extension",
+  "name": "open-transfer-times-workspace",
   "version": "0.1.0",
   "private": true,
   "description": "Open airport transfer dataset, connection-assessment engine, and Google Flights extension.",

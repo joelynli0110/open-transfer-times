@@ -1,6 +1,6 @@
 "use strict";
 
-// Node / bundler entry point for connection-risk-core.
+// Node / bundler entry point for open-transfer-times.
 // In a browser without a bundler, load the UMD files directly in this order:
 // itinerary.js, airport-catalog.js, data/airport-data.generated.js,
 // airport-rules.js, engine.js — they register globals under ConnectionQuality*.

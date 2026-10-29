@@ -1,5 +1,5 @@
 {
-  "name": "connection-risk-core",
+  "name": "open-transfer-times",
   "version": "0.1.0",
   "description": "Deterministic, explainable flight-connection assessment backed by an open, sourced airport transfer dataset.",
   "main": "src/index.js",
@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joelynli0110/connection-risk.git",
+    "url": "https://github.com/joelynli0110/open-transfer-times.git",
     "directory": "packages/core"
   },
   "engines": {

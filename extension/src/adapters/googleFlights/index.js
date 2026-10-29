@@ -3,7 +3,7 @@
     ? require("./parser.js")
     : root.GoogleFlightsParser;
   const models = typeof module === "object" && module.exports
-    ? require("connection-risk-core/src/itinerary.js")
+    ? require("open-transfer-times/src/itinerary.js")
     : root.ConnectionQualityModels;
   const api = factory(parser, models);
   if (typeof module === "object" && module.exports) module.exports = api;

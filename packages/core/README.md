@@ -1,4 +1,4 @@
-# connection-risk-core
+# open-transfer-times
 
 Deterministic, explainable assessment of a flight connection, backed by an open
 and sourced airport transfer dataset.
@@ -15,7 +15,7 @@ No network calls, no runtime dependencies.
 ## Usage
 
 ```js
-const { assessConnection, getAirportProfile } = require("connection-risk-core");
+const { assessConnection, getAirportProfile } = require("open-transfer-times");
 
 const result = assessConnection(
   {
