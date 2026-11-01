@@ -28,6 +28,7 @@
         "core/airport-catalog.js",
         "core/data/airport-data.generated.js",
         "core/airport-rules.js",
+        "core/time.js",
         "core/engine.js",
         "src/adapters/googleFlights/parser.js",
         "src/adapters/googleFlights/index.js",

@@ -3,6 +3,7 @@
 iata: ICN
 name: Seoul Incheon
 country: KR
+timezone: Asia/Seoul
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.

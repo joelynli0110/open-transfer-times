@@ -46,6 +46,7 @@
         "iata": "AMS",
         "name": "Amsterdam Schiphol",
         "country": "NL",
+        "timezone": "Europe/Amsterdam",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -98,6 +99,7 @@
         "iata": "CDG",
         "name": "Paris Charles de Gaulle",
         "country": "FR",
+        "timezone": "Europe/Paris",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -126,7 +128,7 @@
             "id": "connection-route-checks",
             "claim": "Connecting passengers follow the signed connection route and pass any applicable border-formality or security checks on the way to the gate.",
             "source": "airfrance-cdg-connections",
-            "scope": "Published by Air France for connections at Paris airports"
+            "scope": "Air France connections at Paris airports"
           },
           {
             "id": "short-connection-pass",
@@ -150,6 +152,7 @@
         "iata": "DOH",
         "name": "Doha Hamad",
         "country": "QA",
+        "timezone": "Asia/Qatar",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -215,6 +218,7 @@
         "iata": "DXB",
         "name": "Dubai",
         "country": "AE",
+        "timezone": "Asia/Dubai",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -264,6 +268,7 @@
         "iata": "FRA",
         "name": "Frankfurt",
         "country": "DE",
+        "timezone": "Europe/Berlin",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -292,7 +297,7 @@
             "id": "lufthansa-mct-60",
             "claim": "Lufthansa moved its FRA minimum connecting time to a 60-minute standard from 30 March 2025 for intra-European to intra-European connections and Schengen connections to the USA, Singapore and South Africa, ending the earlier 45-50 minute exception.",
             "source": "lufthansa-mct-2024",
-            "scope": "Lufthansa-operated connections only"
+            "scope": "Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa"
           }
         ],
         "sources": {
@@ -310,6 +315,7 @@
         "iata": "HKG",
         "name": "Hong Kong",
         "country": "HK",
+        "timezone": "Asia/Hong_Kong",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -356,6 +362,7 @@
         "iata": "HND",
         "name": "Tokyo Haneda",
         "country": "JP",
+        "timezone": "Asia/Tokyo",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -409,6 +416,7 @@
         "iata": "ICN",
         "name": "Seoul Incheon",
         "country": "KR",
+        "timezone": "Asia/Seoul",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -455,6 +463,7 @@
         "iata": "IST",
         "name": "Istanbul",
         "country": "TR",
+        "timezone": "Europe/Istanbul",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -503,6 +512,7 @@
         "iata": "LHR",
         "name": "London Heathrow",
         "country": "GB",
+        "timezone": "Europe/London",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -561,6 +571,7 @@
         "iata": "MUC",
         "name": "Munich",
         "country": "DE",
+        "timezone": "Europe/Berlin",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -624,6 +635,7 @@
         "iata": "NRT",
         "name": "Tokyo Narita",
         "country": "JP",
+        "timezone": "Asia/Tokyo",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {
@@ -688,6 +700,7 @@
         "iata": "SIN",
         "name": "Singapore Changi",
         "country": "SG",
+        "timezone": "Asia/Singapore",
         "lastReviewed": "2026-10-29",
         "allowances": {
           "baseTransfer": {

@@ -3,6 +3,7 @@
 iata: HKG
 name: Hong Kong
 country: HK
+timezone: Asia/Hong_Kong
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.

@@ -20,7 +20,7 @@ const checkOnly = process.argv.includes("--check");
 
 const ALLOWANCE_KEYS = ["base_transfer", "passport_control", "terminal_change", "security_rescreening"];
 const BASES = ["heuristic", "sourced"];
-const AIRPORT_KEYS = ["iata", "name", "country", "last_reviewed", "allowances", "facts", "sources"];
+const AIRPORT_KEYS = ["iata", "name", "country", "timezone", "last_reviewed", "allowances", "facts", "sources"];
 const FACT_KEYS = ["id", "claim", "source", "scope"];
 const SOURCE_KEYS = ["title", "publisher", "url", "retrieved", "published", "note"];
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -44,6 +44,16 @@ function isIsoDate(value) {
 function checkKeys(file, where, object, allowed) {
   for (const key of Object.keys(object)) {
     if (!allowed.includes(key)) fail(file, `${where}: unknown field "${key}"`);
+  }
+}
+
+function isTimeZone(value) {
+  if (typeof value !== "string" || !/^[A-Za-z]+(?:\/[A-Za-z0-9_+-]+)+$/.test(value)) return false;
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: value });
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -154,6 +164,8 @@ function validateAirport(file, data, expectedIata) {
   if (typeof data.name !== "string" || !data.name.trim()) fail(file, "name is required");
   if (!isBaseline && !/^[A-Z]{2}$/.test(data.country || "")) fail(file, "country must be an ISO 3166-1 alpha-2 code");
   if (isBaseline && data.country !== undefined) fail(file, "the baseline has no country");
+  if (!isBaseline && !isTimeZone(data.timezone)) fail(file, "timezone must be an IANA time zone such as Europe/Berlin");
+  if (isBaseline && data.timezone !== undefined) fail(file, "the baseline has no timezone");
   if (!isIsoDate(data.last_reviewed)) fail(file, "last_reviewed must be a YYYY-MM-DD date");
   if (isBaseline && (data.facts?.length || Object.keys(data.sources || {}).length)) {
     fail(file, "the baseline must not carry facts or sources");
@@ -166,6 +178,7 @@ function validateAirport(file, data, expectedIata) {
     iata: data.iata,
     name: data.name,
     country: data.country,
+    timezone: data.timezone,
     lastReviewed: data.last_reviewed,
     allowances: {
       baseTransfer: allowances.base_transfer,

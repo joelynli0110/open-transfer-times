@@ -37,6 +37,7 @@ Airports without a file use [`airports/_baseline.yaml`](airports/_baseline.yaml)
 iata: LHR                      # must match the file name
 name: London Heathrow
 country: GB                    # ISO 3166-1 alpha-2
+timezone: Europe/London       # IANA time zone, used for layovers across clock changes
 last_reviewed: 2026-10-29      # when someone last checked this file
 
 allowances:                    # minutes the engine deducts from the layover
@@ -49,7 +50,7 @@ facts:
   - id: transfer-security      # lowercase-kebab-case, unique in the file
     claim: All connecting passengers go through security screening again at Heathrow.
     source: heathrow-connecting
-    # scope: Lufthansa-operated connections only   (optional)
+    # scope: Air France connections at Paris airports   (optional: the trips the fact applies to)
 
 sources:
   heathrow-connecting:

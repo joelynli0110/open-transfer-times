@@ -1,8 +1,26 @@
 # RFC 0001: Context-dependent transfer rules (v0.2)
 
-- Status: **Draft — feedback wanted**
-- Target release: 0.2.0
+- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0, see below.
+- Target release: 0.3.0
 - Discussion: GitHub issue linked from this file's PR
+
+## Status after 0.2.0
+
+A second external review flagged the daylight-saving bug again (with a worse
+case: in spring a 60-minute layover was computed as 120) and asked that missing
+data never produce a recommendation. 0.2.0 therefore shipped these ahead of the
+rest of this RFC:
+
+- **§5 Time zones, for the 13 profiled airports**, plus explicit UTC offsets.
+  Time zones for the other airports remain open (Q3).
+- **A `decision` field** (`recommend` / `caution` / `insufficient_data` /
+  `avoid`), ranked first in comparisons. Not in the original RFC; it replaces
+  the question of how far confidence should affect ranking.
+- **Bags on separate tickets as required / not required / unknown**, with the
+  result of a re-check reported when it would matter. This is the first part of
+  §4; entry and exit border steps are still open.
+
+The rest of this document is unchanged and targets 0.3.0.
 
 ## Summary
 
@@ -35,7 +53,7 @@ All are open issues or open-question comments in the airport files today.
 | P3 | MUC screens transfer passengers "in some cases" | Fixed 0 min | external review; `airports/MUC.yaml` fact `conditional-security` |
 | P4 | NRT terminal pairs differ: T2→T3 about 4 min, T3→T1 24–28 min by bus | One 20-minute value for any change | `airports/NRT.yaml` open question |
 | P5 | Self-transfer with bag re-check means entering and leaving the country | Only a flat 45 min; passport control counted as 0 outside Schengen | Claude flagged this in manual testing (IST) |
-| P6 | Layovers across a daylight-saving change are wrong | FRA 25 Oct 2026, 01:30→03:30 computed as 120 min; real elapsed time is 180 min | external review |
+| P6 | Layovers across a daylight-saving change are wrong | FRA 25 Oct 2026, 01:30→03:30 computed as 120 min (real: 180); 29 Mar 2026, 01:30→03:30 computed as 120 min (real: 60) | both external reviews; **fixed in 0.2.0 for profiled airports** |
 | P7 | No minute value is sourced | `high` confidence is unreachable | `airports/COVERAGE.md`: 0 of 52 |
 
 ## Design
@@ -257,7 +275,7 @@ step is sourced, so this split is what makes `high` reachable.
 | 2 | Format v2 + converter + parity gate (§3, §6) | No |
 | 3 | Conditional rules: AMS, MUC, NRT (§3) | Yes, for those airports |
 | 4 | Self-transfer steps (§4) | Yes, for separate tickets with bags |
-| 5 | Time zones for profiled airports (§5) | Only across DST changes |
+| 5 | Time zones for profiled airports (§5) | **Shipped in 0.2.0** |
 | 6 | Deep sourcing MUC, NRT, LHR (§7) | Minutes may change; confidence may rise |
 
 PR 1 is independent and could ship as 0.1.2 of the library.

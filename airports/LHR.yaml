@@ -3,6 +3,7 @@
 iata: LHR
 name: London Heathrow
 country: GB
+timezone: Europe/London
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.

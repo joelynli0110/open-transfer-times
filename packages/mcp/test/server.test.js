@@ -189,7 +189,7 @@ test("summary text names the counted steps and the scope of each fact", async ()
     const result = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "FRA", to: "PVG", layover_minutes: 50 } });
     const text = result.content[0].text;
     assert.match(text, /Steps counted: Move through airport 35 min \(heuristic\); Allow for Schengen border control 20 min \(heuristic\)\. No other steps were counted\./);
-    assert.match(text, /\[scope: Lufthansa-operated connections only\]/);
+    assert.match(text, /- \(Only for: Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa\) Lufthansa moved/);
   } finally {
     await close();
   }
@@ -288,7 +288,9 @@ test("low confidence is stated up front in the summary", async () => {
     const result = await client.callTool({ name: "check_connection", arguments: { from: "ZZZ", via: "XXX", to: "YYY", layover_minutes: 120 } });
     assert.equal(result.structuredContent.quality, "comfortable");
     assert.equal(result.structuredContent.confidence.level, "low");
-    const [, confidenceLine] = result.content[0].text.split("\n");
+    const lines = result.content[0].text.split("\n");
+    assert.match(lines[1], /^Decision: INSUFFICIENT DATA — Key information is missing/);
+    const confidenceLine = lines[2];
     assert.match(confidenceLine, /^Confidence: LOW — No transfer profile for this airport.*Treat the rating as a rough indication only\.$/);
   } finally {
     await close();
@@ -304,4 +306,101 @@ test("server.json for the MCP Registry matches package.json", () => {
   assert.equal(server.packages[0].identifier, pkg.name);
   assert.equal(server.packages[0].version, pkg.version);
   assert.ok(server.description.length <= 100, "registry limit is 100 characters");
+});
+
+// --- 0.2.0 ------------------------------------------------------------------
+
+test("the server sends usage instructions on connect", async () => {
+  const { client, close } = await connect();
+  try {
+    const instructions = client.getInstructions();
+    assert.match(instructions, /pass layover_minutes\. Never invent dates or clock times/);
+    assert.match(instructions, /Explain only the transfer steps listed in `steps`/);
+    assert.match(instructions, /insufficient_data/);
+    assert.match(instructions, /Call a tool first with what the user gave/);
+    assert.match(instructions, /use compare_connections once/);
+  } finally {
+    await close();
+  }
+});
+
+test("check_connection reports the decision and the real layover across a clock change", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "check_connection", arguments: {
+      from: "BER", via: "FRA", to: "PVG", arrival_time: "2026-03-29T01:30", departure_time: "2026-03-29T03:30", ticket: "protected"
+    } });
+    const data = result.structuredContent;
+    assert.equal(data.layover_minutes, 60);
+    assert.equal(data.wall_clock_layover_minutes, 120);
+    assert.equal(data.layover_basis, "timezone");
+    assert.equal(data.decision.value, "caution");
+    assert.match(result.content[0].text, /Layover 60 min \(clocks change: local clocks show 120 min\)/);
+    assert.match(result.content[0].text, /^BER–FRA–PVG: TIGHT — .*\nDecision: CAUTION — Little time is left/);
+  } finally {
+    await close();
+  }
+});
+
+test("UTC offsets are accepted, and durations are never shifted by a time zone", async () => {
+  const { client, close } = await connect();
+  try {
+    const offsets = (await client.callTool({ name: "check_connection", arguments: {
+      from: "BER", via: "VIE", to: "JFK", arrival_time: "2026-03-29T01:30+01:00", departure_time: "2026-03-29T03:30+02:00"
+    } })).structuredContent;
+    assert.equal(offsets.layover_minutes, 60);
+    assert.equal(offsets.layover_basis, "offset");
+    for (const via of ["FRA", "LHR", "SIN", "VIE"]) {
+      const duration = (await client.callTool({ name: "check_connection", arguments: { from: "BER", via, to: "PVG", layover_minutes: 95 } })).structuredContent;
+      assert.equal(duration.layover_minutes, 95, via);
+      assert.equal(duration.layover_basis, "duration", via);
+    }
+    const conflict = await client.callTool({ name: "check_connection", arguments: {
+      from: "BER", via: "FRA", to: "PVG", arrival_time: "2026-03-29T01:30", departure_time: "2026-03-29T03:30", layover_minutes: 120
+    } });
+    assert.equal(conflict.isError, true);
+    assert.match(conflict.content[0].text, /does not match the given times \(60 min\)/);
+  } finally {
+    await close();
+  }
+});
+
+test("separate tickets: unknown bags are surfaced, an explicit false is respected", async () => {
+  const { client, close } = await connect();
+  try {
+    const base = { from: "BER", via: "IST", to: "PVG", layover_minutes: 100, ticket: "separate" };
+    const unknown = await client.callTool({ name: "check_connection", arguments: base });
+    assert.equal(unknown.structuredContent.baggage_recheck, "unknown");
+    assert.deepEqual(unknown.structuredContent.if_baggage_recheck, { buffer_minutes: 10, quality: "tight" });
+    assert.equal(unknown.structuredContent.decision.value, "insufficient_data");
+    assert.match(unknown.content[0].text, /Bags: not stated\. If they must be collected .* margin is 10 min \(tight\)\. Ask the user\./);
+
+    const handLuggage = (await client.callTool({ name: "check_connection", arguments: { ...base, baggage_recheck: false } })).structuredContent;
+    assert.equal(handLuggage.baggage_recheck, "not_required");
+    assert.equal(handLuggage.if_baggage_recheck, undefined);
+    assert.equal(handLuggage.decision.value, "caution");
+
+    const rechecked = (await client.callTool({ name: "check_connection", arguments: { ...base, baggage_recheck: true } })).structuredContent;
+    assert.equal(rechecked.baggage_recheck, "required");
+    assert.equal(rechecked.quality, "tight");
+  } finally {
+    await close();
+  }
+});
+
+test("compare_connections ranks by decision: missing data never outranks a usable connection", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "compare_connections", arguments: { options: [
+      { id: "VIE 4h no data", from: "BER", via: "VIE", to: "JFK", layover_minutes: 240, ticket: "protected" },
+      { id: "MUC 80m", from: "BER", via: "MUC", to: "JFK", layover_minutes: 80, ticket: "protected" },
+      { id: "FRA 45m", from: "BER", via: "FRA", to: "JFK", layover_minutes: 45, ticket: "protected" }
+    ] } });
+    const ranked = result.structuredContent.ranked;
+    assert.deepEqual(ranked.map((entry) => [entry.id, entry.assessment.decision.value]),
+      [["MUC 80m", "recommend"], ["VIE 4h no data", "insufficient_data"], ["FRA 45m", "avoid"]]);
+    assert.match(result.content[0].text, /^1\. MUC 80m BER–MUC–JFK: recommend, reasonable, margin 30 min/);
+  } finally {
+    await close();
+  }
 });

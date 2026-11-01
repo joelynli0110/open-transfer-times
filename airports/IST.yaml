@@ -3,6 +3,7 @@
 iata: IST
 name: Istanbul
 country: TR
+timezone: Europe/Istanbul
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.

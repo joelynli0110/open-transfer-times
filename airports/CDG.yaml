@@ -3,6 +3,7 @@
 iata: CDG
 name: Paris Charles de Gaulle
 country: FR
+timezone: Europe/Paris
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.
@@ -19,7 +20,7 @@ facts:
   - id: connection-route-checks
     claim: Connecting passengers follow the signed connection route and pass any applicable border-formality or security checks on the way to the gate.
     source: airfrance-cdg-connections
-    scope: Published by Air France for connections at Paris airports
+    scope: Air France connections at Paris airports
   - id: short-connection-pass
     claim: Air France offers a short-connection pass at CDG intended to speed passengers with short connections through the checks.
     source: airfrance-cdg-connections

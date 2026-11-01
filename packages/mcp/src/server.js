@@ -10,7 +10,8 @@ const QUALITY_RANK = { comfortable: 0, reasonable: 1, tight: 2, risky: 3 };
 // Equal physical quality: a protected ticket beats an unknown one beats a self-transfer.
 const PROTECTION_RANK = { protected: 0, unknown: 1, separate: 2 };
 const CONFIDENCE_RANK = { high: 0, medium: 1, low: 2 };
-const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
+const DECISION_RANK = Object.fromEntries(core.DECISIONS.map((value, index) => [value, index]));
+const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?$/;
 const DISCLAIMER =
   "Structural estimate from scheduled times and published airport information. " +
   "Not an official minimum connection time and not a delay prediction.";
@@ -19,7 +20,7 @@ const DISCLAIMER =
 // Input schemas
 
 const iata = z.string().trim().regex(/^[A-Za-z]{3}$/, "3-letter IATA airport code").transform((value) => value.toUpperCase());
-const localTime = z.string().regex(LOCAL_TIME, "Local wall-clock time at the connection airport, YYYY-MM-DDTHH:mm");
+const localTime = z.string().regex(LOCAL_TIME, "Local time at the connection airport, YYYY-MM-DDTHH:mm, optionally with a UTC offset such as +02:00");
 
 const connectionFields = {
   from: iata.describe("Origin airport of the first flight (IATA), e.g. BER"),
@@ -36,7 +37,8 @@ const connectionFields = {
   arrival_terminal: z.string().trim().min(1).optional().describe("Arrival terminal at the connection airport, if known"),
   departure_terminal: z.string().trim().min(1).optional().describe("Departure terminal at the connection airport, if known"),
   terminal_change: z.boolean().optional().describe("Set true if a terminal change is known but terminals are not given"),
-  baggage_recheck: z.boolean().optional().describe("Set true if checked bags must be collected and checked in again")
+  baggage_recheck: z.boolean().optional()
+    .describe("true if checked bags must be collected and checked in again, false if not (hand luggage only, or bags checked through). On separate tickets, leave it out only if unknown: the result then says whether it matters.")
 };
 const connectionInput = z.object(connectionFields);
 
@@ -76,6 +78,16 @@ const connectionAirportOutput = airportDataOutput.omit({ allowances: true });
 const assessmentOutput = z.object({
   route: z.string(),
   layover_source: z.enum(["times", "duration"]),
+  decision: z.object({
+    value: z.enum(["recommend", "caution", "insufficient_data", "avoid"]),
+    reasons: z.array(z.object({ code: z.string(), explanation: z.string() }))
+  }).describe("What to do with this connection. insufficient_data means key information is missing: ask the user rather than recommending it."),
+  layover_basis: z.enum(["timezone", "offset", "wall_clock", "duration"])
+    .describe("How the layover length was computed: the airport's time zone, explicit UTC offsets, plain clock difference, or a given duration."),
+  wall_clock_layover_minutes: z.number().optional().describe("Present when clocks change during the layover: what the local clocks show."),
+  baggage_recheck: z.enum(["required", "not_required", "unknown"]),
+  if_baggage_recheck: z.object({ buffer_minutes: z.number(), quality: z.string() }).optional()
+    .describe("Separate tickets with unknown bags: the result if bags must be re-checked."),
   quality: z.enum(["comfortable", "reasonable", "tight", "risky"]),
   verdict: z.string(),
   layover_minutes: z.number(),
@@ -173,9 +185,9 @@ function appliedSteps(result) {
     });
 }
 
-// The engine works on wall-clock times. When only a duration is known, use a
-// neutral reference date; the date never affects the result.
-const REFERENCE_ARRIVAL = "2000-01-01T00:00";
+// When only a duration is known, use a neutral reference date with explicit
+// UTC offsets, so neither the date nor any time zone can affect the result.
+const REFERENCE_ARRIVAL = "2000-01-01T00:00Z";
 
 function itineraryTimes(input) {
   const hasArrival = input.arrival_time !== undefined;
@@ -184,7 +196,12 @@ function itineraryTimes(input) {
     throw new Error("Give both arrival_time and departure_time, or give layover_minutes instead.");
   }
   if (hasArrival) {
-    const fromTimes = core.minutesBetween(input.arrival_time, input.departure_time);
+    let fromTimes = null;
+    try {
+      fromTimes = core.layoverMinutes(input.arrival_time, input.departure_time, input.via);
+    } catch {
+      // The assessment reports invalid times with the engine's own message.
+    }
     if (input.layover_minutes !== undefined && fromTimes !== null && fromTimes !== input.layover_minutes) {
       throw new Error(`layover_minutes (${input.layover_minutes}) does not match the given times (${fromTimes} min).`);
     }
@@ -193,14 +210,13 @@ function itineraryTimes(input) {
   if (input.layover_minutes === undefined) {
     throw new Error("Give arrival_time and departure_time, or layover_minutes.");
   }
-  const departure = new Date(Date.UTC(2000, 0, 1, 0, input.layover_minutes)).toISOString().slice(0, 16);
+  const departure = `${new Date(Date.UTC(2000, 0, 1, 0, input.layover_minutes)).toISOString().slice(0, 16)}Z`;
   return { arrival: REFERENCE_ARRIVAL, departure, source: "duration" };
 }
 
 function assess(input) {
   const times = itineraryTimes(input);
   const itinerary = {
-    baggageRecheckRequired: input.baggage_recheck === true,
     segments: [
       { origin: input.from, destination: input.via, arrivalTime: times.arrival, arrivalTerminal: input.arrival_terminal },
       { origin: input.via, destination: input.to, departureTime: times.departure, departureTerminal: input.departure_terminal }
@@ -209,7 +225,7 @@ function assess(input) {
   const result = core.assessConnection(itinerary, {
     ticketStatus: input.ticket,
     terminalChange: input.terminal_change === true,
-    baggageRecheck: input.baggage_recheck === true
+    baggageRecheck: input.baggage_recheck // true, false, or undefined = unknown
   });
   const steps = appliedSteps(result);
   const stepTotal = steps.reduce((sum, step) => sum + step.minutes, 0);
@@ -220,6 +236,14 @@ function assess(input) {
   return {
     route: `${input.from}–${input.via}–${input.to}`,
     layover_source: times.source,
+    decision: {
+      value: result.decision.value,
+      reasons: result.decision.reasons.map(({ code, explanation }) => ({ code, explanation }))
+    },
+    layover_basis: times.source === "duration" ? "duration" : result.layoverBasis,
+    ...(result.wallClockLayoverMinutes !== result.layoverMinutes ? { wall_clock_layover_minutes: result.wallClockLayoverMinutes } : {}),
+    baggage_recheck: result.baggageRecheck,
+    ...(result.ifBaggageRecheck ? { if_baggage_recheck: { buffer_minutes: result.ifBaggageRecheck.bufferMinutes, quality: result.ifBaggageRecheck.quality } } : {}),
     quality: result.quality,
     verdict: result.verdict,
     layover_minutes: result.layoverMinutes,
@@ -244,17 +268,23 @@ function summarize(assessment) {
     : "standard baseline (no airport-specific profile)";
   return [
     `${assessment.route}: ${assessment.quality.toUpperCase()} — ${assessment.verdict}`,
+    `Decision: ${assessment.decision.value.toUpperCase().replace("_", " ")} — ${assessment.decision.reasons.map((reason) => reason.explanation).join(" ")}`,
     `Confidence: ${assessment.confidence.level.toUpperCase()}${assessment.confidence.level === "low"
       ? ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")} Treat the rating as a rough indication only.`
       : ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")}`}`,
-    `Layover ${assessment.layover_minutes} min, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.buffer_minutes} min.`,
+    `Layover ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
+      ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.buffer_minutes} min.`,
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
     `Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`,
     `Ticket: ${assessment.ticket.label}.`,
+    ...(assessment.if_baggage_recheck
+      ? [`Bags: not stated. If they must be collected and checked in again, the margin is ${assessment.if_baggage_recheck.buffer_minutes} min (${assessment.if_baggage_recheck.quality}). Ask the user.`]
+      : []),
     `Data: ${dataNote}.`,
     ...(assessment.connection_airport.facts.length
       ? ["Airport facts are context, not extra steps. Apply a fact only where its scope matches this trip:",
-        ...assessment.connection_airport.facts.map((fact) => `- ${fact.claim}${fact.scope ? ` [scope: ${fact.scope}]` : ""}`)]
+        // The scope leads, so a reader cannot miss that the fact is conditional.
+        ...assessment.connection_airport.facts.map((fact) => `- ${fact.scope ? `(Only for: ${fact.scope}) ` : ""}${fact.claim}`)]
       : [])
   ].join("\n");
 }
@@ -263,13 +293,29 @@ function errorResult(error) {
   return { isError: true, content: [{ type: "text", text: `Could not assess this connection: ${error.message}` }] };
 }
 
+// Sent to clients on connect. Each rule addresses a failure seen when testing
+// agents with this server.
+const INSTRUCTIONS = [
+  "Use these tools to check whether a flight connection leaves enough time to transfer. The tools do the arithmetic; explain their results, do not recompute them.",
+  "- Call a tool first with what the user gave. Ticket type and checked bags may be unknown: leave them out and the tool reports what they would change.",
+  "- If the user gives only a layover length (\"50 minutes in Frankfurt\"), pass layover_minutes. Never invent dates or clock times.",
+  "- Ask before calling a tool only when the connection airport, or both the layover length and the times, are missing.",
+  "- When the user compares two or more options, use compare_connections once with all of them, not check_connection for each.",
+  "- For an itinerary with several stops, check each connection separately.",
+  "- Explain only the transfer steps listed in `steps`; no other steps were counted.",
+  "- Report the `decision`. For insufficient_data, say what is missing (from the confidence reasons) and do not present the connection as safe.",
+  "- After giving the result: on separate tickets with if_baggage_recheck shown, ask whether bags must be re-checked.",
+  "- Airport facts are context. A fact marked \"(Only for: …)\" applies only to those trips; do not apply it to others, and an airline's minimum connection time is not the airport's.",
+  "- This is a structural estimate, not an official minimum connection time and not a delay prediction."
+].join("\n");
+
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 
 // ---------------------------------------------------------------------------
 // Server
 
 function createServer() {
-  const server = new McpServer({ name: "open-transfer-times", version });
+  const server = new McpServer({ name: "open-transfer-times", version }, { instructions: INSTRUCTIONS });
 
   server.registerTool("check_connection", {
     title: "Check a flight connection",
@@ -279,7 +325,8 @@ function createServer() {
       "from the scheduled layover and returns comfortable / reasonable / tight / risky, the reasons, ticket-protection " +
       "exposure, and the cited airport facts behind the estimate. Give the scheduled arrival and departure as local wall-clock " +
       "times at the connection airport, or only layover_minutes when that is all the user said. Explain the result using " +
-      "the returned steps; airport facts are context and only apply where their scope matches the trip.",
+      "the returned steps; airport facts are context and only apply where their scope matches the trip. To compare two " +
+      "or more options, call compare_connections once instead of this tool for each.",
     inputSchema: connectionFields,
     outputSchema: assessmentOutput.shape,
     annotations: { title: "Check a flight connection", ...READ_ONLY }
@@ -296,8 +343,8 @@ function createServer() {
     title: "Compare and rank flight connections",
     description:
       "Assess several one-stop itineraries (for example the results of a flight search) and rank them from safest to " +
-      "riskiest connection: by transfer quality, then ticket protection (one ticket before unknown before self-transfer), " +
-      "then confidence, then remaining margin. Each option takes times or layover_minutes, like check_connection. Use the optional id to map " +
+      "riskiest connection: by decision (recommend, caution, insufficient data, avoid), then transfer quality, then ticket " +
+      "protection (one ticket before unknown before self-transfer), then confidence, then remaining margin. Each option takes times or layover_minutes, like check_connection. Use the optional id to map " +
       "results back to your own options (e.g. an offer id or price).",
     inputSchema: {
       options: z.array(connectionInput.extend({ id: z.string().optional().describe("Your identifier for this option") }))
@@ -323,7 +370,8 @@ function createServer() {
     });
     evaluated.sort((a, b) => {
       if (a.error || b.error) return (a.error ? 1 : 0) - (b.error ? 1 : 0) || a.index - b.index;
-      return QUALITY_RANK[a.assessment.quality] - QUALITY_RANK[b.assessment.quality]
+      return DECISION_RANK[a.assessment.decision.value] - DECISION_RANK[b.assessment.decision.value]
+        || QUALITY_RANK[a.assessment.quality] - QUALITY_RANK[b.assessment.quality]
         || PROTECTION_RANK[a.assessment.ticket.status] - PROTECTION_RANK[b.assessment.ticket.status]
         || CONFIDENCE_RANK[a.assessment.confidence.level] - CONFIDENCE_RANK[b.assessment.confidence.level]
         || b.assessment.buffer_minutes - a.assessment.buffer_minutes
@@ -337,7 +385,7 @@ function createServer() {
     const text = ranked.map((entry) => {
       const label = entry.id ? `${entry.id} ` : "";
       return entry.assessment
-        ? `${entry.rank}. ${label}${entry.assessment.route}: ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence`
+        ? `${entry.rank}. ${label}${entry.assessment.route}: ${entry.assessment.decision.value.replace("_", " ")}, ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence`
         : `${entry.rank}. ${label}could not be assessed: ${entry.error}`;
     }).join("\n");
     return { content: [{ type: "text", text }], structuredContent: { ranked, disclaimer: DISCLAIMER } };

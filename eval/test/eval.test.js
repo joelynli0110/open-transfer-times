@@ -34,8 +34,9 @@ test("every expected call is accepted by the real MCP server", async () => {
     for (const testCase of cases) {
       for (const expected of testCase.expect.calls || []) {
         const tool = expected.tool || "check_connection";
-        // Alternatives (e.g. PVG or SHA): each must be a valid argument; try the first.
-        const leg = Object.fromEntries(Object.entries(expected.leg).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
+        // "*absent*" means the field must not be sent at all. Alternatives (e.g. PVG or SHA): try the first.
+        const leg = Object.fromEntries(Object.entries(expected.leg).filter(([, value]) => value !== "*absent*")
+          .map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
         if (leg.arrival_time === "*present*") Object.assign(leg, { arrival_time: "2026-09-20T10:00", departure_time: "2026-09-20T11:30" });
         // Expectations may leave the layover open (e.g. they only pin the airport); fill one in.
         if (tool !== "get_airport_profile" && tool !== "list_airports" && leg.layover_minutes === undefined && leg.arrival_time === undefined) {

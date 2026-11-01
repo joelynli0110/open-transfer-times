@@ -90,7 +90,7 @@ measures what the instructions are worth.
 
 ## What is checked
 
-[`cases.json`](cases.json) holds 36 questions in Chinese and English across
+[`cases.json`](cases.json) holds 38 questions in Chinese and English across
 nine categories: clock times, layover duration only, separate tickets, airports
 without a profile (low confidence), scoped facts, comparisons, multi-stop trips,
 questions missing information, and airport-data questions.
@@ -116,6 +116,8 @@ questions missing information, and airport-data questions.
 | `fact_scope` | applies a scoped fact (e.g. one airline's MCT) to a trip outside its scope. |
 | `confidence_reported` | does not flag a low-confidence result as less reliable. |
 | `self_transfer_risk` | does not warn that separate tickets are unprotected. |
+| `decision_respected` | presents an `avoid` or `insufficient_data` connection as safe. |
+| `asks_about_baggage` | does not ask about bags when separate tickets leave it open. |
 | `asks_for_missing_info` | guesses instead of asking when the question is incomplete. |
 
 The judge must quote the failing words, and the report lists every failure with

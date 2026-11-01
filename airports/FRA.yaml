@@ -3,6 +3,7 @@
 iata: FRA
 name: Frankfurt
 country: DE
+timezone: Europe/Berlin
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.
@@ -25,7 +26,7 @@ facts:
       for intra-European to intra-European connections and Schengen connections to the USA,
       Singapore and South Africa, ending the earlier 45-50 minute exception.
     source: lufthansa-mct-2024
-    scope: Lufthansa-operated connections only
+    scope: Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa
 
 sources:
   lufthansa-mct-2024:

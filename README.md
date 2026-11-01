@@ -13,16 +13,18 @@ agents can check connections before recommending a flight.
 Ask an AI agent to compare layovers. With the MCP server connected, it gets:
 
 ```text
-1. IST 3 h BER–IST–PVG: comfortable, margin 135 min, protected itinerary, medium confidence
-2. VIE 2 h BER–VIE–PVG: comfortable, margin 65 min, protected itinerary, low confidence
-3. FRA 50 min BER–FRA–PVG: risky, margin -5 min, protected itinerary, medium confidence
+1. IST 3 h BER–IST–PVG: recommend, comfortable, margin 135 min, protected itinerary, medium confidence
+2. VIE 2 h BER–VIE–PVG: insufficient data, comfortable, margin 65 min, protected itinerary, low confidence
+3. FRA 50 min BER–FRA–PVG: avoid, risky, margin -5 min, protected itinerary, medium confidence
 ```
 
-Each result lists the transfer steps it counted, a confidence level, and the
-official sources behind the airport data:
+Vienna has plenty of time but no airport data, so it is not recommended. Each
+result gives a decision, the transfer steps it counted, a confidence level, and
+the official sources behind the airport data:
 
 ```text
 BER–LHR–PVG: REASONABLE — A practical connection on one ticket.
+Decision: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
 Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 35 min.
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
@@ -82,7 +84,8 @@ publish openly, cites every fact, and marks every estimate as an estimate.
 The engine is deterministic: the model that calls it explains the result but
 never does the arithmetic.
 
-1. Start from the scheduled layover.
+1. Start from the real layover: at profiled airports, in the airport's time
+   zone, so a daylight-saving change is accounted for.
 2. Deduct the transfer steps that apply at the connection airport: a base
    transfer allowance, Schengen passport control when the transfer crosses the
    Schengen border, a terminal change when known, security re-screening, and
@@ -90,13 +93,17 @@ never does the arithmetic.
 3. Rate the remaining margin: `comfortable` (≥ 45 min), `reasonable` (≥ 25),
    `tight` (≥ 5) or `risky`.
 
-Two things are reported separately from the rating:
+Alongside the rating:
 
 - **Confidence** (`high` / `medium` / `low`). An airport without a profile, or
   a route whose border situation is unknown, is always low confidence, so
   missing data is never presented as "no risk".
 - **Ticket protection.** Separate tickets change the warning and verdict, but
-  do not add transfer time by themselves.
+  do not add transfer time by themselves. When bags on separate tickets are not
+  stated, the result shows what a re-check would do.
+- **Decision** (`recommend` / `caution` / `insufficient_data` / `avoid`)
+  combines the three. Missing data never yields `recommend`, and comparisons
+  rank by decision first.
 
 ## Airport data
 
@@ -128,19 +135,21 @@ with a sourced figure, or report a rule the format can't express: see
   modelled yet.
 - **Self-transfers.** Re-checking bags adds a fixed allowance, but entering and
   leaving the country is not counted outside Schengen.
-- **Local clock times.** Layovers spanning a daylight-saving change are off by
-  an hour.
+- **Clock changes at other airports.** Only the 13 profiled airports have time
+  zones. Elsewhere a layover across a daylight-saving change is off by an hour
+  unless the times carry UTC offsets.
 - Visa and transit-visa requirements are not covered.
 
 ## Roadmap
 
-[RFC 0001](docs/rfcs/0001-context-dependent-rules.md) proposes v0.2: a country
-for every airport, rules with conditions, self-transfer border steps, time
-zones, and sourced durations for MUC, NRT and LHR. It addresses most of the
-limitations above. Feedback is welcome on its discussion issue.
+[RFC 0001](docs/rfcs/0001-context-dependent-rules.md) proposes the next steps: a
+country for every airport, rules with conditions, self-transfer border steps,
+time zones beyond the profiled airports, and sourced durations for MUC, NRT and
+LHR. It addresses most of the limitations above. Feedback is welcome on its
+discussion issue.
 
 The [agent evaluation](eval) measures how reliably an AI agent uses the server:
-36 questions in Chinese and English, graded on tool calls and answer accuracy,
+38 questions in Chinese and English, graded on tool calls and answer accuracy,
 for any model behind Anthropic, OpenAI, OpenRouter or a local Ollama.
 
 ## Repository layout

@@ -5,13 +5,17 @@
   const catalog = typeof module === "object" && module.exports
     ? require("./airport-catalog.js")
     : root.ConnectionQualityAirportCatalog;
-  const api = factory(rules, catalog);
+  const time = typeof module === "object" && module.exports
+    ? require("./time.js")
+    : root.ConnectionQualityTime;
+  const api = factory(rules, catalog, time);
   if (typeof module === "object" && module.exports) module.exports = api;
   root.ConnectionQualityEngine = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function createEngine(rulesModule, airportCatalog) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function createEngine(rulesModule, airportCatalog, timeModule) {
   "use strict";
 
   const { AIRPORT_RULES, FALLBACK_RULE, travelZone } = rulesModule;
+  const BAGGAGE_RECHECK_MINUTES = 45;
 
   function wallClockTimestamp(value) {
     const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
@@ -86,8 +90,11 @@
     const outbound = segments[1];
     const connectionAirport = inbound.destination;
     if (connectionAirport !== outbound.origin) throw new Error("The itinerary segments are not connected.");
-    const layoverMinutes = minutesBetween(inbound.arrivalTime, outbound.departureTime);
-    if (layoverMinutes === null) throw new Error("Open both flight segments to show the connection time.");
+    const airportProfile = rulesModule.getAirportProfile(connectionAirport);
+    // Real elapsed time: uses the airport's time zone (or explicit offsets), so a
+    // layover across a daylight-saving change is not off by an hour.
+    const layover = timeModule.layover(inbound.arrivalTime, outbound.departureTime, airportProfile?.timezone);
+    const layoverMinutes = layover.minutes;
 
     const airportRule = AIRPORT_RULES[connectionAirport];
     const rule = airportRule || FALLBACK_RULE;
@@ -97,6 +104,17 @@
     const processFactors = [];
     const checks = [];
     let deductions = rule.baseTransferMinutes;
+
+    if (layover.minutes !== layover.wallClockMinutes) {
+      const shorter = layover.minutes < layover.wallClockMinutes;
+      processFactors.push(factor(
+        "CLOCK_CHANGE",
+        "Clocks change during this layover",
+        shorter ? "high" : "low",
+        `Local clocks show ${layover.wallClockMinutes} min between the flights, but ${layover.minutes} min actually pass` +
+          `${layover.timeZone ? ` (${layover.timeZone})` : ""}.`
+      ));
+    }
 
     if (!airportRule) {
       processFactors.push(factor("AIRPORT_TRANSFER", "Airport transfer required", "low", "Rule-of-thumb allowance for walking and normal transfer steps."));
@@ -139,14 +157,26 @@
       checks.push(check("SECURITY_RESCREENING", "Allow for another security check", `${rule.securityMinutes} min estimate`, layoverMinutes >= deductions));
     }
     const baggageRecheckRequired = options.baggageRecheck === true || itinerary.baggageRecheckRequired === true;
+    const baggageRecheckRuledOut = options.baggageRecheck === false
+      || itinerary.baggageEvidence?.recheckRequired === false
+      || itinerary.baggageEvidence?.throughChecked === true;
+    const baggageRecheck = baggageRecheckRequired ? "required" : baggageRecheckRuledOut ? "not_required" : "unknown";
     if (baggageRecheckRequired) {
-      deductions += 45;
+      deductions += BAGGAGE_RECHECK_MINUTES;
       processFactors.push(factor("BAGGAGE_RECHECK", "Collect bags and check in again", "high", "Baggage collection and re-check are explicit physical transfer steps."));
       checks.push(check("BAGGAGE_RECHECK", "Collect bags and check in again", "Required", layoverMinutes >= deductions));
     }
 
     const structuralBufferMinutes = layoverMinutes - deductions;
     const quality = qualityForBuffer(structuralBufferMinutes);
+    // On separate tickets, bags usually have to be collected and checked in again.
+    // When nobody said either way, check whether that would change the rating.
+    const baggageWhatIf = ticketStatus === "separate" && baggageRecheck === "unknown"
+      ? { bufferMinutes: structuralBufferMinutes - BAGGAGE_RECHECK_MINUTES, quality: qualityForBuffer(structuralBufferMinutes - BAGGAGE_RECHECK_MINUTES) }
+      : null;
+    // Only matters when a re-check would push the connection into tight or risky.
+    const baggageCouldChangeRating = Boolean(baggageWhatIf && baggageWhatIf.quality !== quality
+      && (baggageWhatIf.quality === "tight" || baggageWhatIf.quality === "risky"));
     const marginFactor = structuralBufferMinutes < 5
       ? factor("STRUCTURAL_MARGIN", "Insufficient transfer margin", "high", "The scheduled layover is shorter than the structural allowance.")
       : structuralBufferMinutes < 25
@@ -168,6 +198,15 @@
         ? { status: "separate", label: "High disruption exposure", detail: protectionAssessment.explanation }
         : { status: "unknown", label: "Ticket protection unknown", detail: protectionAssessment.explanation };
 
+    const confidence = assessConfidence({
+      airportProfile,
+      connectionZone,
+      routeZoneUnknown,
+      checks,
+      dstAmbiguous: layover.ambiguous,
+      baggageUnknown: baggageCouldChangeRating ? baggageWhatIf : null
+    });
+
     return {
       quality,
       connectionAirport,
@@ -183,13 +222,14 @@
       protectionAssessment,
       ticketProtection,
       verdict: verdictFor(quality, ticketStatus),
-      confidence: assessConfidence({
-        airportProfile: rulesModule.getAirportProfile(connectionAirport),
-        connectionZone,
-        routeZoneUnknown,
-        checks
-      }),
-      modelVersion: "structural-v2"
+      confidence,
+      decision: decide({ quality, confidence, ticketStatus }),
+      layoverBasis: layover.basis,
+      wallClockLayoverMinutes: layover.wallClockMinutes,
+      ...(layover.timeZone ? { timeZone: layover.timeZone } : {}),
+      baggageRecheck,
+      ...(baggageWhatIf ? { ifBaggageRecheck: baggageWhatIf } : {}),
+      modelVersion: "structural-v3"
     };
   }
 
@@ -200,14 +240,20 @@
     BASELINE_AIRPORT: "No transfer profile for this airport; generic baseline allowances were used.",
     CONNECTION_ZONE_UNKNOWN: "The border situation at this airport is not modelled, so passport control was not counted.",
     ROUTE_ZONE_UNKNOWN: "The origin or destination could not be placed inside or outside Schengen; a generic formalities allowance was used.",
+    BAGGAGE_UNKNOWN: "Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky.",
+    DST_AMBIGUOUS: "A time falls in the hour that repeats when clocks go back; the shorter possible layover was used.",
     HEURISTIC_ALLOWANCES: "The transfer-step durations are rule-of-thumb estimates, not sourced figures."
   };
+  // Reasons that mean key information is missing: confidence is low.
+  const LOW_CONFIDENCE_REASONS = new Set(["BASELINE_AIRPORT", "CONNECTION_ZONE_UNKNOWN", "ROUTE_ZONE_UNKNOWN", "BAGGAGE_UNKNOWN"]);
 
-  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks }) {
+  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks, dstAmbiguous, baggageUnknown }) {
     const reasons = [];
     if (!airportProfile) reasons.push("BASELINE_AIRPORT");
     if (connectionZone === "unknown") reasons.push("CONNECTION_ZONE_UNKNOWN");
     if (routeZoneUnknown) reasons.push("ROUTE_ZONE_UNKNOWN");
+    if (baggageUnknown) reasons.push("BAGGAGE_UNKNOWN");
+    if (dstAmbiguous) reasons.push("DST_AMBIGUOUS");
     const stepKeys = {
       AIRPORT_TRANSFER: "baseTransfer",
       SCHENGEN_BORDER_CONTROL: "passportControl",
@@ -219,12 +265,58 @@
       const key = stepKeys[item.code];
       return key && airportProfile.allowances[key].basis === "sourced";
     });
-    if (!allSourced && reasons.length === 0) reasons.push("HEURISTIC_ALLOWANCES");
-    const level = reasons.some((code) => code !== "HEURISTIC_ALLOWANCES")
+    if (!allSourced && !reasons.some((code) => LOW_CONFIDENCE_REASONS.has(code))) reasons.push("HEURISTIC_ALLOWANCES");
+    const level = reasons.some((code) => LOW_CONFIDENCE_REASONS.has(code))
       ? "low"
       : reasons.length ? "medium" : "high";
-    return { level, reasons: reasons.map((code) => ({ code, explanation: CONFIDENCE_REASONS[code] })) };
+    return {
+      level,
+      reasons: reasons.map((code) => {
+        let explanation = CONFIDENCE_REASONS[code];
+        if (code === "BAGGAGE_UNKNOWN") {
+          explanation += ` With a bag re-check the margin would be ${baggageUnknown.bufferMinutes} min (${baggageUnknown.quality}).`;
+        }
+        return { code, explanation };
+      })
+    };
   }
 
-  return { assessConnection, minutesBetween, qualityForBuffer, CONFIDENCE_REASONS };
+  // What to do with the connection, combining the rating, how far it can be
+  // trusted, and ticket protection. Missing data never yields "recommend".
+  const DECISION_REASONS = {
+    RISKY_MARGIN: "The transfer steps take about as long as the layover or longer.",
+    LOW_CONFIDENCE: "Key information is missing, so the rating cannot be relied on.",
+    TIGHT_MARGIN: "Little time is left after the transfer steps.",
+    SELF_TRANSFER: "Separate tickets: a missed connection is not protected.",
+    TICKET_UNKNOWN: "Ticket protection is not stated; confirm whether both flights are on one booking.",
+    CLEAR: "Enough time after the transfer steps, on a protected ticket, with usable data."
+  };
+  const DECISIONS = ["recommend", "caution", "insufficient_data", "avoid"];
+
+  function decide({ quality, confidence, ticketStatus }) {
+    const reasons = [];
+    let value;
+    if (quality === "risky") {
+      value = "avoid";
+      reasons.push("RISKY_MARGIN");
+      if (confidence.level === "low") reasons.push("LOW_CONFIDENCE");
+    } else if (confidence.level === "low") {
+      value = "insufficient_data";
+      reasons.push("LOW_CONFIDENCE");
+    } else {
+      if (quality === "tight") reasons.push("TIGHT_MARGIN");
+      if (ticketStatus === "separate") reasons.push("SELF_TRANSFER");
+      if (ticketStatus === "unknown") reasons.push("TICKET_UNKNOWN");
+      value = reasons.length ? "caution" : "recommend";
+      if (!reasons.length) reasons.push("CLEAR");
+    }
+    return { value, reasons: reasons.map((code) => ({ code, explanation: DECISION_REASONS[code] })) };
+  }
+
+  function layoverMinutes(arrival, departure, connectionAirport) {
+    const profile = rulesModule.getAirportProfile(connectionAirport);
+    return timeModule.layover(arrival, departure, profile?.timezone).minutes;
+  }
+
+  return { assessConnection, minutesBetween, layoverMinutes, qualityForBuffer, CONFIDENCE_REASONS, DECISION_REASONS, DECISIONS };
 });

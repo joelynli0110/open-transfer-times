@@ -3,6 +3,7 @@
 iata: NRT
 name: Tokyo Narita
 country: JP
+timezone: Asia/Tokyo
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.

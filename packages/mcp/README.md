@@ -17,8 +17,8 @@ All tools are read-only.
 
 | Tool | What it does |
 | --- | --- |
-| `check_connection` | Assess one connection: `comfortable` / `reasonable` / `tight` / `risky`, a separate confidence level (`high` / `medium` / `low`) with reasons, the layover, each transfer step that was counted with its minutes, remaining margin, ticket-protection exposure, and the connection airport's cited facts. |
-| `compare_connections` | Assess 2–20 itineraries (e.g. flight-search results) and rank them: by transfer quality, then ticket protection (one ticket → unknown → self-transfer), then confidence, then margin. Pass your own `id` per option to map results back. |
+| `check_connection` | Assess one connection: a **decision** (`recommend` / `caution` / `insufficient_data` / `avoid`), the rating (`comfortable` → `risky`), a confidence level with reasons, the real layover, each transfer step counted with its minutes, the margin, ticket-protection exposure, and the connection airport's cited facts. |
+| `compare_connections` | Assess 2–20 itineraries (e.g. flight-search results) and rank them: by decision, then rating, then ticket protection (one ticket → unknown → self-transfer), then confidence, then margin. A connection with missing data never outranks a usable one. Pass your own `id` per option to map results back. |
 | `get_airport_profile` | An airport's transfer allowances, whether each is `heuristic` or `sourced`, and its cited facts with official links. |
 | `list_airports` | Airports with their own profile and how well each is sourced. |
 
@@ -27,13 +27,13 @@ All tools are read-only.
 | Field | Required | Example | Notes |
 | --- | --- | --- | --- |
 | `from`, `via`, `to` | yes | `BER`, `LHR`, `PVG` | IATA codes; case-insensitive. |
-| `arrival_time` | one of | `2026-09-20T10:00` | First flight's arrival, local time at `via`. |
+| `arrival_time` | one of | `2026-09-20T10:00` | First flight's arrival, local time at `via`; a UTC offset (`+02:00`) is optional. |
 | `departure_time` | one of | `2026-09-20T11:30` | Second flight's departure, local time at `via`. |
 | `layover_minutes` | one of | `90` | Use instead of the two times when only the layover length is known. |
 | `ticket` | no | `protected` | `protected` (one booking), `separate` (self-transfer), `unknown` (default). |
 | `arrival_terminal`, `departure_terminal` | no | `2`, `5` | A terminal change is detected when both are given and differ. |
 | `terminal_change` | no | `true` | Use when a change is known but terminals are not. |
-| `baggage_recheck` | no | `true` | Bags must be collected and checked in again. |
+| `baggage_recheck` | no | `false` | `true`: bags must be collected and checked in again. `false`: hand luggage only, or checked through. Omit only if unknown; on separate tickets the result then shows whether it matters. |
 
 Give either both times or `layover_minutes`. If both are given they must agree.
 
@@ -41,6 +41,7 @@ Example result text:
 
 ```text
 BER–LHR–PVG: REASONABLE — A practical connection on one ticket.
+Decision: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
 Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 35 min.
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
@@ -49,15 +50,36 @@ Ticket: Protected itinerary.
 Data: London Heathrow profile (partial, 3 cited facts).
 Airport facts are context, not extra steps. Apply a fact only where its scope matches this trip:
 - All connecting passengers go through security screening again at Heathrow.
-- Connections between different terminals use a free transfer bus that runs about every 10 minutes.
-- Heathrow does not publish a minimum connection time; travellers are told to check their airline's figure, which does not apply to separately booked flights.
+- ...
 ```
 
-`confidence.level` is `low` whenever the airport has no profile or the border
-situation could not be determined; the summary then says to treat the rating
-as a rough indication only. `steps` always adds up to `transfer_process_minutes`. Facts are listed with
-their `scope` (for example "Lufthansa-operated connections only") so the agent
-does not apply them to the wrong trip.
+On separate tickets with bags not stated, where a re-check would matter:
+
+```text
+BER–IST–PVG: COMFORTABLE — Transfer time looks workable, but separate tickets leave you exposed to disruption.
+Decision: INSUFFICIENT DATA — Key information is missing, so the rating cannot be relied on.
+Confidence: LOW — Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky. With a bag re-check the margin would be 10 min (tight). ...
+```
+
+- `decision` is the field to act on. `insufficient_data` means key information
+  is missing (the confidence reasons say what): ask the user rather than
+  recommending the connection.
+- `steps` always adds up to `transfer_process_minutes`. Facts are listed with
+  their `scope` (for example "Air France connections at Paris airports") so the
+  agent does not apply them to the wrong trip.
+- Layovers are real elapsed time: at the 13 profiled airports a layover across a
+  daylight-saving change is computed in the airport's time zone, and
+  `wall_clock_layover_minutes` shows what the clocks say.
+
+### Instructions for agents
+
+The server sends usage instructions when a client connects (MCP `instructions`):
+call a tool first with what the user gave, pass `layover_minutes` instead of
+inventing times, ask only when the airport or the duration is missing, use
+`compare_connections` for comparisons, explain only the counted steps, report
+the decision, ask about bags on separate tickets after giving the result, and
+respect fact scopes (scoped facts are shown as "(Only for: …)"). Each rule addresses a
+failure seen when testing agents; see [eval](../../eval).
 
 The same data is returned as `structuredContent` matching the tool's output schema.
 
@@ -113,6 +135,8 @@ passes the results to `compare_connections`.
   not an official minimum connection time, and not a delay prediction.
 - 13 airports have their own profile; all others use a standard baseline, which
   the result reports as `coverage: "baseline"`.
+- Clock changes are handled at the 13 profiled airports; elsewhere pass times
+  with UTC offsets for exact layovers.
 
 ## Development
 

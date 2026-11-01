@@ -3,6 +3,7 @@
 iata: DXB
 name: Dubai
 country: AE
+timezone: Asia/Dubai
 last_reviewed: 2026-10-29
 
 # Minutes the engine deducts from the scheduled layover.

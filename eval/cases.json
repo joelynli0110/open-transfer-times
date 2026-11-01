@@ -1,49 +1,120 @@
 {
-  "description": "Natural-language questions an agent might get, and what correct tool use and answers look like. Leg expectations are partial matches on check_connection arguments or on any compare_connections option. '*present*' / '*absent*' check that a field is or is not set.",
+  "description": "Natural-language questions an agent might get, and what correct tool use and answers look like. Leg expectations are partial matches on check_connection arguments or on any compare_connections option. '*present*' / '*absent*' check that a field is or is not set; a list accepts any of its values.",
   "cases": [
     {
       "id": "times-ist-protected-zh",
       "category": "times",
       "prompt": "柏林飞上海，在伊斯坦布尔转机，10:00 到，11:15 起飞，同一张票，时间够吗？",
-      "expect": { "calls": [{ "leg": { "from": "BER", "via": "IST", "to": ["PVG", "SHA"], "ticket": "protected" } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "from": "BER",
+              "via": "IST",
+              "to": ["PVG", "SHA"],
+              "ticket": "protected"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "times-ist-protected-en",
       "category": "times",
       "prompt": "Berlin to Shanghai via Istanbul: I land at 10:00 and the next flight leaves at 11:15, both on one ticket. Is that enough time?",
-      "expect": { "calls": [{ "leg": { "from": "BER", "via": "IST", "ticket": "protected" } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "from": "BER",
+              "via": "IST",
+              "ticket": "protected"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "times-lhr-terminals-en",
       "category": "times",
       "prompt": "Flying Berlin–London Heathrow–Shanghai. Arrive LHR Terminal 2 at 14:05, depart Terminal 5 at 15:20, single booking. Will I make it?",
-      "expect": { "calls": [{ "leg": { "via": "LHR", "arrival_terminal": "2", "departure_terminal": "5" } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "LHR",
+              "arrival_terminal": "2",
+              "departure_terminal": "5"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "times-fra-schengen-zh",
       "category": "times",
       "prompt": "柏林经法兰克福飞上海，法兰克福 9:40 落地，10:35 起飞，联程票。来得及吗？",
-      "expect": { "calls": [{ "leg": { "from": "BER", "via": "FRA", "to": ["PVG", "SHA"] } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "from": "BER",
+              "via": "FRA",
+              "to": ["PVG", "SHA"]
+            }
+          }
+        ]
+      }
     },
     {
       "id": "times-overnight-en",
       "category": "times",
       "prompt": "My first flight lands in Doha at 23:40 and the connection to Bangkok leaves at 01:05 the next morning. Coming from Munich, one ticket. Enough time?",
-      "expect": { "calls": [{ "leg": { "from": "MUC", "via": "DOH", "to": "BKK" } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "from": "MUC",
+              "via": "DOH",
+              "to": "BKK"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "times-muc-transatlantic-en",
       "category": "times",
       "prompt": "New York JFK to Berlin with a stop in Munich. I arrive in Munich at 07:50 and the Berlin flight is at 09:00. Same ticket. Is 70 minutes OK?",
-      "expect": { "calls": [{ "leg": { "from": "JFK", "via": "MUC", "to": "BER" } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "from": "JFK",
+              "via": "MUC",
+              "to": "BER"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "duration-fra-50-zh",
       "category": "duration_only",
       "prompt": "在法兰克福转机 50 分钟，从柏林飞上海，够不够？",
       "expect": {
-        "calls": [{ "leg": { "via": "FRA", "layover_minutes": 50 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "FRA",
+              "layover_minutes": 50
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -51,8 +122,18 @@
       "category": "duration_only",
       "prompt": "Is a 2-hour layover in Doha enough when flying from Berlin to Singapore?",
       "expect": {
-        "calls": [{ "leg": { "via": "DOH", "layover_minutes": 120 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "DOH",
+              "layover_minutes": 120
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -60,8 +141,18 @@
       "category": "duration_only",
       "prompt": "Berlin to New York through Amsterdam with 1h15 in between. Doable?",
       "expect": {
-        "calls": [{ "leg": { "via": "AMS", "layover_minutes": 75 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "AMS",
+              "layover_minutes": 75
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -69,8 +160,18 @@
       "category": "duration_only",
       "prompt": "从上海经东京成田转机去洛杉矶，中转一个半小时，时间宽裕吗？",
       "expect": {
-        "calls": [{ "leg": { "via": "NRT", "layover_minutes": 90 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "NRT",
+              "layover_minutes": 90
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -78,8 +179,18 @@
       "category": "duration_only",
       "prompt": "60 minutes to connect in Hong Kong on the way from London to Sydney — tight or fine?",
       "expect": {
-        "calls": [{ "leg": { "via": "HKG", "layover_minutes": 60 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "HKG",
+              "layover_minutes": 60
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -87,8 +198,18 @@
       "category": "duration_only",
       "prompt": "新加坡转机只有 45 分钟，悉尼飞伦敦，靠谱吗？",
       "expect": {
-        "calls": [{ "leg": { "via": "SIN", "layover_minutes": 45 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "SIN",
+              "layover_minutes": 45
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -96,7 +217,16 @@
       "category": "separate_ticket",
       "prompt": "柏林飞伊斯坦布尔和伊斯坦布尔飞上海是两张票，行李要重新托运，中转 75 分钟，行吗？",
       "expect": {
-        "calls": [{ "leg": { "via": "IST", "ticket": "separate", "baggage_recheck": true, "layover_minutes": 75 } }]
+        "calls": [
+          {
+            "leg": {
+              "via": "IST",
+              "ticket": "separate",
+              "baggage_recheck": true,
+              "layover_minutes": 75
+            }
+          }
+        ]
       }
     },
     {
@@ -104,8 +234,19 @@
       "category": "separate_ticket",
       "prompt": "I booked Berlin–London and London–Shanghai separately. 3 hours at Heathrow, hand luggage only. Risky?",
       "expect": {
-        "calls": [{ "leg": { "via": "LHR", "ticket": "separate", "layover_minutes": 180 } }],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "calls": [
+          {
+            "leg": {
+              "via": "LHR",
+              "ticket": "separate",
+              "layover_minutes": 180
+            }
+          }
+        ],
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -113,7 +254,16 @@
       "category": "separate_ticket",
       "prompt": "Self-transfer in Dubai: two separate tickets, I have to collect and re-check my suitcase, 2h30 layover, Frankfurt to Bangkok.",
       "expect": {
-        "calls": [{ "leg": { "via": "DXB", "ticket": "separate", "baggage_recheck": true, "layover_minutes": 150 } }]
+        "calls": [
+          {
+            "leg": {
+              "via": "DXB",
+              "ticket": "separate",
+              "baggage_recheck": true,
+              "layover_minutes": 150
+            }
+          }
+        ]
       }
     },
     {
@@ -121,75 +271,188 @@
       "category": "separate_ticket",
       "prompt": "慕尼黑转机 90 分钟，从纽约飞柏林，不确定是不是同一张票。",
       "expect": {
-        "calls": [{ "leg": { "via": "MUC", "ticket": "unknown", "layover_minutes": 90 } }]
+        "calls": [
+          {
+            "leg": {
+              "via": "MUC",
+              "ticket": "unknown",
+              "layover_minutes": 90
+            }
+          }
+        ]
       }
     },
     {
       "id": "low-vie-zh",
       "category": "low_confidence",
       "prompt": "柏林经维也纳飞纽约，维也纳转机 1 小时，够吗？",
-      "expect": { "calls": [{ "leg": { "via": "VIE", "layover_minutes": 60 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "VIE",
+              "layover_minutes": 60
+            }
+          }
+        ]
+      }
     },
     {
       "id": "low-bkk-en",
       "category": "low_confidence",
       "prompt": "Is a 3-hour layover in Bangkok safe, flying Singapore to Tokyo Haneda?",
-      "expect": { "calls": [{ "leg": { "via": "BKK", "layover_minutes": 180 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "BKK",
+              "layover_minutes": 180
+            }
+          }
+        ]
+      }
     },
     {
       "id": "low-cph-en",
       "category": "low_confidence",
       "prompt": "Copenhagen connection, 2 hours, coming from Berlin and going on to Reykjavik. Comfortable?",
-      "expect": { "calls": [{ "leg": { "via": "CPH", "layover_minutes": 120 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "CPH",
+              "layover_minutes": 120
+            }
+          }
+        ]
+      }
     },
     {
       "id": "low-unknown-route-zh",
       "category": "low_confidence",
       "prompt": "从开罗飞内罗毕，在亚的斯亚贝巴转机两小时，够吗？",
-      "expect": { "calls": [{ "leg": { "via": "ADD", "layover_minutes": 120 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "ADD",
+              "layover_minutes": 120
+            }
+          }
+        ]
+      }
     },
     {
       "id": "low-zrh-en",
       "category": "low_confidence",
       "prompt": "Zurich layover of 50 minutes between a flight from Berlin and one to Boston. Is that enough?",
-      "expect": { "calls": [{ "leg": { "via": "ZRH", "layover_minutes": 50 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "ZRH",
+              "layover_minutes": 50
+            }
+          }
+        ]
+      }
     },
     {
       "id": "scope-fra-lh-pvg-zh",
       "category": "fact_scope",
       "prompt": "柏林经法兰克福飞上海，转机 65 分钟，同一张票。汉莎不是说法兰克福最少要 60 分钟吗？那我就没问题了吧？",
-      "expect": { "calls": [{ "leg": { "via": "FRA", "layover_minutes": 65 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "FRA",
+              "layover_minutes": 65
+            }
+          }
+        ]
+      }
     },
     {
       "id": "scope-ist-pegasus-en",
       "category": "fact_scope",
       "prompt": "Pegasus to Istanbul, then a different airline to Shanghai on a separate ticket, 2 hours at IST. Do I skip passport control like on Turkish Airlines connections?",
-      "expect": { "calls": [{ "leg": { "via": "IST", "ticket": "separate", "layover_minutes": 120 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "IST",
+              "ticket": "separate",
+              "layover_minutes": 120
+            }
+          }
+        ]
+      }
     },
     {
       "id": "scope-lhr-mct-en",
       "category": "fact_scope",
       "prompt": "What is the official minimum connection time at Heathrow? I have 70 minutes from Berlin to Shanghai.",
-      "expect": { "calls": [{ "leg": { "via": "LHR", "layover_minutes": 70 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "LHR",
+              "layover_minutes": 70
+            }
+          }
+        ]
+      }
     },
     {
       "id": "scope-doh-gate-zh",
       "category": "fact_scope",
       "prompt": "多哈转机 50 分钟，从柏林去曼谷，联程。登机口什么时候关？来得及吗？",
-      "expect": { "calls": [{ "leg": { "via": "DOH", "layover_minutes": 50 } }] }
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "DOH",
+              "layover_minutes": 50
+            }
+          }
+        ]
+      }
     },
     {
       "id": "compare-three-durations-zh",
       "category": "compare",
       "prompt": "帮我比较三个选项：法兰克福转 50 分钟、伊斯坦布尔转 3 小时、多哈转 2 小时，柏林飞上海，哪个中转最稳？",
       "expect": {
-        "compare": { "options": 3 },
+        "compare": {
+          "options": 3
+        },
         "calls": [
-          { "tool": "compare_connections", "leg": { "via": "FRA", "layover_minutes": 50 } },
-          { "tool": "compare_connections", "leg": { "via": "IST", "layover_minutes": 180 } },
-          { "tool": "compare_connections", "leg": { "via": "DOH", "layover_minutes": 120 } }
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "FRA",
+              "layover_minutes": 50
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "IST",
+              "layover_minutes": 180
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "DOH",
+              "layover_minutes": 120
+            }
+          }
         ],
-        "forbid_leg_fields": ["arrival_time", "departure_time"]
+        "forbid_leg_fields": [
+          "arrival_time",
+          "departure_time"
+        ]
       }
     },
     {
@@ -197,10 +460,24 @@
       "category": "compare",
       "prompt": "Two options Berlin to Shanghai via Istanbul: (A) 4 hours, but self-transfer on two tickets; (B) 3 hours on one ticket. Which is safer?",
       "expect": {
-        "compare": { "options": 2 },
+        "compare": {
+          "options": 2
+        },
         "calls": [
-          { "tool": "compare_connections", "leg": { "layover_minutes": 240, "ticket": "separate" } },
-          { "tool": "compare_connections", "leg": { "layover_minutes": 180, "ticket": "protected" } }
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "layover_minutes": 240,
+              "ticket": "separate"
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "layover_minutes": 180,
+              "ticket": "protected"
+            }
+          }
         ]
       }
     },
@@ -209,10 +486,24 @@
       "category": "compare",
       "prompt": "Berlin to New York, one ticket: 2h in Vienna or 2h in Munich. Which connection is more reliable?",
       "expect": {
-        "compare": { "options": 2 },
+        "compare": {
+          "options": 2
+        },
         "calls": [
-          { "tool": "compare_connections", "leg": { "via": "VIE", "layover_minutes": 120 } },
-          { "tool": "compare_connections", "leg": { "via": "MUC", "layover_minutes": 120 } }
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "VIE",
+              "layover_minutes": 120
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "MUC",
+              "layover_minutes": 120
+            }
+          }
         ]
       }
     },
@@ -221,11 +512,31 @@
       "category": "compare",
       "prompt": "Frankfurt to Bangkok. Option 1: Dubai, land 19:10, depart 20:05. Option 2: Doha, land 18:30, depart 20:45. Option 3: Istanbul, land 17:55, depart 19:15. All one ticket. Rank them.",
       "expect": {
-        "compare": { "options": 3 },
+        "compare": {
+          "options": 3
+        },
         "calls": [
-          { "tool": "compare_connections", "leg": { "via": "DXB", "arrival_time": "*present*" } },
-          { "tool": "compare_connections", "leg": { "via": "DOH", "arrival_time": "*present*" } },
-          { "tool": "compare_connections", "leg": { "via": "IST", "arrival_time": "*present*" } }
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "DXB",
+              "arrival_time": "*present*"
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "DOH",
+              "arrival_time": "*present*"
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "IST",
+              "arrival_time": "*present*"
+            }
+          }
         ]
       }
     },
@@ -234,12 +545,38 @@
       "category": "compare",
       "prompt": "柏林飞东京羽田，四个中转选项：伦敦 2 小时、法兰克福 1 小时、赫尔辛基 90 分钟、首尔仁川 3 小时，都是联程，帮我排个序。",
       "expect": {
-        "compare": { "options": 4 },
+        "compare": {
+          "options": 4
+        },
         "calls": [
-          { "tool": "compare_connections", "leg": { "via": "LHR", "layover_minutes": 120 } },
-          { "tool": "compare_connections", "leg": { "via": "FRA", "layover_minutes": 60 } },
-          { "tool": "compare_connections", "leg": { "via": "HEL", "layover_minutes": 90 } },
-          { "tool": "compare_connections", "leg": { "via": "ICN", "layover_minutes": 180 } }
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "LHR",
+              "layover_minutes": 120
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "FRA",
+              "layover_minutes": 60
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "HEL",
+              "layover_minutes": 90
+            }
+          },
+          {
+            "tool": "compare_connections",
+            "leg": {
+              "via": "ICN",
+              "layover_minutes": 180
+            }
+          }
         ]
       }
     },
@@ -249,8 +586,18 @@
       "prompt": "Berlin → Istanbul → Doha → Shanghai. 2 hours in Istanbul, then 50 minutes in Doha. All on one ticket. Any problem connection?",
       "expect": {
         "calls": [
-          { "leg": { "via": "IST", "layover_minutes": 120 } },
-          { "leg": { "via": "DOH", "layover_minutes": 50 } }
+          {
+            "leg": {
+              "via": "IST",
+              "layover_minutes": 120
+            }
+          },
+          {
+            "leg": {
+              "via": "DOH",
+              "layover_minutes": 50
+            }
+          }
         ]
       }
     },
@@ -260,8 +607,18 @@
       "prompt": "北京飞迪拜转机 3 小时，再从迪拜飞法兰克福转机 1 小时，最后到柏林。哪一段中转有风险？",
       "expect": {
         "calls": [
-          { "leg": { "via": "DXB", "layover_minutes": 180 } },
-          { "leg": { "via": "FRA", "layover_minutes": 60 } }
+          {
+            "leg": {
+              "via": "DXB",
+              "layover_minutes": 180
+            }
+          },
+          {
+            "leg": {
+              "via": "FRA",
+              "layover_minutes": 60
+            }
+          }
         ]
       }
     },
@@ -269,25 +626,92 @@
       "id": "clarify-no-airport-zh",
       "category": "clarify",
       "prompt": "我中转只有 50 分钟，会不会赶不上？",
-      "expect": { "no_tool": true, "judge": ["asks_for_missing_info"] }
+      "expect": {
+        "no_tool": true,
+        "judge": [
+          "asks_for_missing_info"
+        ]
+      }
     },
     {
       "id": "clarify-no-duration-en",
       "category": "clarify",
       "prompt": "Is connecting in Frankfurt usually OK?",
-      "expect": { "no_tool": true, "judge": ["asks_for_missing_info"] }
+      "expect": {
+        "no_tool": true,
+        "judge": [
+          "asks_for_missing_info"
+        ]
+      }
     },
     {
       "id": "profile-lhr-en",
       "category": "profile",
       "prompt": "Do I have to go through security again when I connect at Heathrow? Where does that information come from?",
-      "expect": { "calls": [{ "tool": "get_airport_profile", "leg": { "airport": "LHR" } }] }
+      "expect": {
+        "calls": [
+          {
+            "tool": "get_airport_profile",
+            "leg": {
+              "airport": "LHR"
+            }
+          }
+        ]
+      }
     },
     {
       "id": "profile-list-zh",
       "category": "profile",
       "prompt": "你的中转数据覆盖了哪些机场？",
-      "expect": { "calls": [{ "tool": "list_airports", "leg": {} }] }
+      "expect": {
+        "calls": [
+          {
+            "tool": "list_airports",
+            "leg": {}
+          }
+        ]
+      }
+    },
+    {
+      "id": "dst-fra-spring-en",
+      "category": "times",
+      "prompt": "Berlin to Shanghai via Frankfurt on 29 March 2026: I land at 01:30 and the next flight leaves at 03:30, one ticket. Is two hours enough?",
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "FRA",
+              "arrival_time": "2026-03-29T01:30",
+              "departure_time": "2026-03-29T03:30"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "separate-bags-unknown-zh",
+      "category": "separate_ticket",
+      "prompt": "柏林飞伊斯坦布尔、伊斯坦布尔飞上海是分开买的两张票，中转 100 分钟，来得及吗？",
+      "expect": {
+        "calls": [
+          {
+            "leg": {
+              "via": "IST",
+              "ticket": "separate",
+              "layover_minutes": 100,
+              "baggage_recheck": "*absent*"
+            }
+          }
+        ],
+        "judge": [
+          "numbers_match",
+          "no_invented_steps",
+          "no_invented_details",
+          "decision_respected",
+          "self_transfer_risk",
+          "asks_about_baggage"
+        ]
+      }
     }
   ]
 }

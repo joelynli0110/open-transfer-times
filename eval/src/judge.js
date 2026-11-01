@@ -26,12 +26,18 @@ const RUBRIC = {
   self_transfer_risk:
     "If any assessment has ticket status \"separate\", the answer warns that a missed connection on separate tickets is " +
     "not protected. n/a otherwise.",
+  decision_respected:
+    "If an assessment's `decision` is \"insufficient_data\" or \"avoid\", the answer does not present that connection as " +
+    "safe, fine or recommended. n/a if no assessment has those decisions.",
+  asks_about_baggage:
+    "If an assessment shows `if_baggage_recheck` (separate tickets, bags not stated), the answer asks the user whether " +
+    "checked bags must be collected and re-checked, or explains that this changes the result. n/a otherwise.",
   asks_for_missing_info:
     "The question lacks information needed to assess a connection (e.g. which airport, or how long). The answer asks for " +
     "it instead of inventing it. n/a if the question had enough information."
 };
 
-const DEFAULT_ITEMS = ["numbers_match", "no_invented_steps", "no_invented_details", "fact_scope", "confidence_reported", "self_transfer_risk"];
+const DEFAULT_ITEMS = ["numbers_match", "no_invented_steps", "no_invented_details", "fact_scope", "confidence_reported", "self_transfer_risk", "decision_respected"];
 
 // Keep the judge's view small and focused on what the answer can be checked against.
 function summarizeCall(call) {
@@ -49,7 +55,8 @@ function summarizeCall(call) {
       rank: a.rank, id: a.id, route: a.route, quality: a.quality, layover_minutes: a.layover_minutes,
       transfer_process_minutes: a.transfer_process_minutes, buffer_minutes: a.buffer_minutes,
       steps: a.steps?.map((step) => `${step.label}: ${step.minutes} min (${step.basis})`),
-      confidence: a.confidence, ticket: a.ticket?.status,
+      confidence: a.confidence, ticket: a.ticket?.status, decision: a.decision,
+      wall_clock_layover_minutes: a.wall_clock_layover_minutes, baggage_recheck: a.baggage_recheck, if_baggage_recheck: a.if_baggage_recheck,
       facts: a.connection_airport?.facts?.map((fact) => ({ claim: fact.claim, scope: fact.scope || "none stated" }))
     })),
     other_result: result && !assessments.length ? result : undefined
