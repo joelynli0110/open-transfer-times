@@ -23,7 +23,7 @@ function buildReport({ results, meta }) {
   const passedCases = outcomes.filter((outcome) => outcome.passed).length;
 
   lines.push("# Agent evaluation report", "");
-  lines.push(`- Model: \`${meta.model}\` · Judge: \`${meta.judgeModel}\``);
+  lines.push(`- Agent: \`${meta.agent}\` · Judge: \`${meta.judge}\`${meta.serverInstructions === false ? " · without server instructions" : ""}`);
   lines.push(`- Server: open-transfer-times-mcp ${meta.serverVersion} · Cases: ${results.length}${meta.repeat > 1 ? ` (${meta.repeat} runs each)` : ""}`);
   lines.push(`- Run: ${meta.startedAt}`);
   lines.push(`- Tokens: ${meta.usage.input_tokens} in / ${meta.usage.output_tokens} out (agent only)`);

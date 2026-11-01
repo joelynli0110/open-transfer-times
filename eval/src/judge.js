@@ -90,15 +90,16 @@ function parseJudgeReply(text, items) {
   return out;
 }
 
-async function judgeAnswer({ anthropic, model, testCase, transcript }) {
+/**
+ * @param {{ judge: { complete: (prompt: string) => Promise<string> } }} options  a provider from providers.js
+ */
+async function judgeAnswer({ judge, testCase, transcript }) {
   const items = testCase.expect?.judge || (testCase.expect?.no_tool ? ["asks_for_missing_info", "no_invented_details"] : DEFAULT_ITEMS);
   const prompt = buildJudgePrompt({ question: testCase.prompt, calls: transcript.calls, answer: transcript.answer, items });
   let lastError;
   for (let attempt = 0; attempt < 2; attempt += 1) {
-    const response = await anthropic.messages.create({ model, max_tokens: 1500, messages: [{ role: "user", content: prompt }] });
-    const text = response.content.filter((block) => block.type === "text").map((block) => block.text).join("");
     try {
-      return parseJudgeReply(text, items);
+      return parseJudgeReply(await judge.complete(prompt), items);
     } catch (error) {
       lastError = error;
     }

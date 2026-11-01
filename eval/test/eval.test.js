@@ -5,7 +5,9 @@ const path = require("node:path");
 const { deterministicChecks, legMatches } = require("../src/checks.js");
 const { parseJudgeReply, buildJudgePrompt, RUBRIC } = require("../src/judge.js");
 const { buildReport } = require("../src/report.js");
-const { evaluate, selectCases, parseArgs } = require("../src/run.js");
+const { evaluate, selectCases, parseArgs, systemPrompt } = require("../src/run.js");
+const { createProvider, toFunctionTool } = require("../src/providers.js");
+const { compareRuns } = require("../src/compare.js");
 const { connectServer } = require("../src/agent.js");
 
 const { cases } = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "cases.json"), "utf8"));
@@ -120,56 +122,156 @@ test("the judge prompt shows counted steps, confidence and fact scopes", () => {
   assert.match(prompt, /no_invented_steps:/);
 });
 
-// --- end to end with a scripted stand-in for the Claude API ----------------
+// --- end to end, with scripted stand-ins for both provider types ------------
 
-function scriptedAnthropic() {
-  const calls = [];
+const JUDGE_ALL_PASS = (prompt) => {
+  const items = [...prompt.matchAll(/^- ([a-z_]+): /gm)].map((match) => match[1]);
+  return JSON.stringify({ items: Object.fromEntries(items.map((id) => [id, { verdict: "pass", reason: "scripted" }])) });
+};
+const FRA_50 = { from: "BER", via: "FRA", to: "PVG", layover_minutes: 50 };
+
+function scriptedAnthropicClient() {
+  const requests = [];
   return {
-    calls,
+    requests,
     messages: {
       async create(request) {
-        calls.push(request);
-        const isJudge = !request.tools;
-        if (isJudge) {
-          const items = [...request.messages[0].content.matchAll(/^- ([a-z_]+): /gm)].map((match) => match[1]);
-          return { content: [{ type: "text", text: JSON.stringify({ items: Object.fromEntries(items.map((id) => [id, { verdict: "pass", reason: "scripted" }])) }) }], usage: {} };
-        }
+        requests.push(request);
+        if (!request.tools) return { content: [{ type: "text", text: JUDGE_ALL_PASS(request.messages[0].content) }], usage: {} };
         const last = request.messages[request.messages.length - 1];
-        if (last.role === "user" && typeof last.content === "string") {
-          return {
-            stop_reason: "tool_use", usage: { input_tokens: 10, output_tokens: 5 },
-            content: [{ type: "tool_use", id: "t1", name: "check_connection", input: { from: "BER", via: "FRA", to: "PVG", layover_minutes: 50 } }]
-          };
+        if (typeof last.content === "string") {
+          return { stop_reason: "tool_use", usage: { input_tokens: 10, output_tokens: 5 },
+            content: [{ type: "tool_use", id: "t1", name: "check_connection", input: FRA_50 }] };
         }
-        const toolText = last.content[0].content;
-        return { stop_reason: "end_turn", usage: { input_tokens: 20, output_tokens: 8 }, content: [{ type: "text", text: `Tool said: ${toolText.split("\n")[0]}` }] };
+        return { stop_reason: "end_turn", usage: { input_tokens: 20, output_tokens: 8 },
+          content: [{ type: "text", text: `Tool said: ${last.content[0].content.split("\n")[0]}` }] };
       }
     }
   };
 }
 
-test("evaluate() runs the agent loop against the real server and grades it", async () => {
-  const anthropic = scriptedAnthropic();
-  const { results, usage } = await evaluate({ anthropic, cases: [durationCase], model: "scripted", judgeModel: "scripted" });
-  assert.equal(results.length, 1);
+function scriptedFetch({ argumentsAsString = true, badArguments = false } = {}) {
+  const requests = [];
+  async function fetchImpl(url, init) {
+    const body = JSON.parse(init.body);
+    requests.push({ url, headers: init.headers, body });
+    const reply = (payload) => ({ ok: true, status: 200, text: async () => JSON.stringify(payload) });
+    if (!body.tools) return reply({ choices: [{ message: { content: JUDGE_ALL_PASS(body.messages[0].content) } }] });
+    const last = body.messages[body.messages.length - 1];
+    if (last.role === "user") {
+      const args = badArguments ? "{not json" : argumentsAsString ? JSON.stringify(FRA_50) : FRA_50;
+      return reply({
+        choices: [{ finish_reason: "tool_calls", message: { role: "assistant", content: null,
+          tool_calls: [{ id: "call_1", type: "function", function: { name: "check_connection", arguments: args } }] } }],
+        usage: { prompt_tokens: 12, completion_tokens: 6 }
+      });
+    }
+    return reply({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: `Tool said: ${last.content.split("\n")[0]}` } }],
+      usage: { prompt_tokens: 30, completion_tokens: 9 } });
+  }
+  return { fetchImpl, requests };
+}
+
+test("Anthropic provider: agent loop against the real server, graded", async () => {
+  const client = scriptedAnthropicClient();
+  const provider = createProvider({ provider: "anthropic", model: "scripted", env: { ANTHROPIC_API_KEY: "x" }, anthropicClient: client });
+  const { results, usage } = await evaluate({ agent: provider, judge: provider, cases: [durationCase] });
   const [result] = results;
   assert.equal(result.transcript.calls[0].result.quality, "risky");
   assert.match(result.transcript.answer, /BER–FRA–PVG: RISKY/);
   assert.ok(result.deterministic.every((check) => check.passed), JSON.stringify(result.deterministic));
   assert.ok(Object.values(result.judge).every((item) => item.verdict === "pass"));
   assert.deepEqual(usage, { input_tokens: 30, output_tokens: 13 });
-  // the MCP tool list is passed to the model as Claude API tools
-  assert.deepEqual(anthropic.calls[0].tools.map((tool) => tool.name).sort(), ["check_connection", "compare_connections", "get_airport_profile", "list_airports"]);
-  assert.ok(anthropic.calls[0].tools[0].input_schema.properties);
+  assert.deepEqual(client.requests[0].tools.map((tool) => tool.name).sort(), ["check_connection", "compare_connections", "get_airport_profile", "list_airports"]);
+  // The agent's system prompt carries whatever instructions the server sends.
+  const server = await connectServer();
+  try {
+    assert.equal(client.requests[0].system, systemPrompt(server, true));
+    if (server.instructions) assert.ok(client.requests[0].system.includes(server.instructions));
+  } finally {
+    await server.close();
+  }
 
-  const report = buildReport({ results, meta: { model: "scripted", judgeModel: "scripted", serverVersion: "x", repeat: 1, startedAt: "t", usage } });
+  const report = buildReport({ results, meta: { agent: provider.name, judge: provider.name, serverVersion: "x", repeat: 1, startedAt: "t", usage } });
   assert.match(report.markdown, /\*\*1 of 1 runs passed every check \(100%\)\.\*\*/);
-  assert.match(report.markdown, /\| no_arrival_time \| tool call \| 1\/1 \| 100% \|/);
+});
+
+test("OpenAI-compatible provider: function tools, tool messages, real server", async () => {
+  const { fetchImpl, requests } = scriptedFetch();
+  const provider = createProvider({ provider: "openrouter", model: "vendor/model", env: { OPENROUTER_API_KEY: "secret" }, fetchImpl });
+  assert.equal(provider.name, "openrouter:vendor/model");
+  const { results, usage } = await evaluate({ agent: provider, judge: provider, cases: [durationCase], serverInstructions: false });
+  const [result] = results;
+  assert.equal(result.transcript.calls[0].result.quality, "risky");
+  assert.ok(result.deterministic.every((check) => check.passed), JSON.stringify(result.deterministic));
+  assert.ok(Object.values(result.judge).every((item) => item.verdict === "pass"));
+  assert.deepEqual(usage, { input_tokens: 42, output_tokens: 15 });
+
+  const [first, second] = requests;
+  assert.equal(first.url, "https://openrouter.ai/api/v1/chat/completions");
+  assert.equal(first.headers.authorization, "Bearer secret");
+  assert.equal(first.body.model, "vendor/model");
+  assert.equal(first.body.messages[0].role, "system");
+  assert.doesNotMatch(first.body.messages[0].content, /Instructions from the open-transfer-times/, "--no-server-instructions");
+  const tool = first.body.tools.find((item) => item.function.name === "check_connection");
+  assert.equal(tool.type, "function");
+  assert.ok(tool.function.parameters.properties.layover_minutes);
+  assert.equal(tool.function.parameters.$schema, undefined);
+  // the tool result goes back as a "tool" message tied to the call id
+  const toolMessage = second.body.messages.find((message) => message.role === "tool");
+  assert.equal(toolMessage.tool_call_id, "call_1");
+  assert.match(toolMessage.content, /^BER–FRA–PVG: RISKY/);
+});
+
+test("OpenAI-compatible provider: object arguments work, malformed arguments become a failed call", async () => {
+  const objectArgs = scriptedFetch({ argumentsAsString: false });
+  const ollama = createProvider({ provider: "ollama", model: "local", env: {}, fetchImpl: objectArgs.fetchImpl });
+  const ok = await evaluate({ agent: ollama, judge: ollama, cases: [durationCase] });
+  assert.equal(ok.results[0].transcript.calls[0].isError, false);
+  assert.equal(objectArgs.requests[0].url, "http://localhost:11434/v1/chat/completions");
+  assert.equal(objectArgs.requests[0].headers.authorization, undefined, "Ollama needs no key");
+
+  const bad = scriptedFetch({ badArguments: true });
+  const broken = createProvider({ provider: "ollama", model: "local", env: {}, fetchImpl: bad.fetchImpl });
+  const failed = await evaluate({ agent: broken, judge: broken, cases: [durationCase] });
+  assert.equal(failed.results[0].transcript.calls[0].isError, true);
+  assert.match(failed.results[0].transcript.calls[0].text, /Invalid JSON arguments/);
+  assert.ok(failed.results[0].deterministic.some((check) => check.id === "tool_calls_succeeded" && !check.passed));
+});
+
+test("provider setup errors are explicit", () => {
+  assert.throws(() => createProvider({ provider: "nope" }), /Unknown provider "nope"/);
+  assert.throws(() => createProvider({ provider: "openai", env: { OPENAI_API_KEY: "x" } }), /--model is required/);
+  assert.throws(() => createProvider({ provider: "openai", model: "m", env: {} }), /Set OPENAI_API_KEY/);
+  assert.throws(() => createProvider({ provider: "compatible", model: "m", env: { OPENAI_API_KEY: "x" } }), /needs a base URL/);
+  const custom = createProvider({ provider: "compatible", model: "m", baseUrl: "http://host:8000/v1/", apiKeyEnv: "MY_KEY", env: { MY_KEY: "k" } });
+  assert.equal(custom.name, "compatible:m");
+  assert.equal(toFunctionTool({ name: "t", description: "d", inputSchema: { $schema: "x", type: "object", properties: {} } }).function.parameters.$schema, undefined);
+});
+
+test("comparison report lines up runs on shared cases and flags different judges", () => {
+  const run = (agent, judge, passes, ids) => ({
+    meta: { agent, judge, serverVersion: "0.2.0", usage: { input_tokens: 1, output_tokens: 2 } },
+    results: ids.map((id, index) => ({
+      id, category: "times", deterministic: [{ id: "tool_called", passed: passes[index], detail: "" }],
+      judge: { numbers_match: { verdict: "pass", reason: "" } }
+    }))
+  });
+  const markdown = compareRuns([
+    run("anthropic:a", "anthropic:j", [true, false, true], ["c1", "c2", "c3"]),
+    run("ollama:b", "anthropic:j", [true, true], ["c1", "c2"])
+  ]);
+  assert.match(markdown, /Compared on 2 case\(s\) present in every run\./);
+  assert.match(markdown, /\| \*\*Runs passing every check\*\* \| \*\*50% \(1\/2\)\*\* \| \*\*100% \(2\/2\)\*\* \|/);
+  assert.match(markdown, /\| tool_called \(tool call\) \| 50% \(1\/2\) \| 100% \(2\/2\) \|/);
+  assert.doesNotMatch(markdown, /different judges/);
+  assert.match(compareRuns([run("a", "j1", [true], ["c1"]), run("b", "j2", [true], ["c1"])]), /runs used different judges/);
 });
 
 test("CLI argument parsing and case selection", () => {
-  const args = parseArgs(["--model", "m", "--category", "compare", "--limit", "2", "--repeat", "3"]);
-  assert.deepEqual(args, { repeat: 3, model: "m", category: "compare", limit: 2 });
+  const args = parseArgs(["--provider", "ollama", "--model", "qwen", "--judge-provider", "anthropic", "--category", "compare",
+    "--limit", "2", "--repeat", "3", "--no-server-instructions"]);
+  assert.deepEqual(args, { repeat: 3, serverInstructions: false, provider: "ollama", model: "qwen", judgeProvider: "anthropic", category: "compare", limit: 2 });
   assert.equal(selectCases(cases, args).length, 2);
   assert.ok(selectCases(cases, args).every((testCase) => testCase.category === "compare"));
   assert.deepEqual(selectCases(cases, { only: ["low-vie-zh"] }).map((testCase) => testCase.id), ["low-vie-zh"]);

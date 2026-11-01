@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Eval runs on any provider: Anthropic, OpenAI, OpenRouter, a local Ollama or
+  any OpenAI-compatible endpoint, with a separate judge provider;
+  `npm run eval:compare` puts runs side by side; `--no-server-instructions`
+  measures what the MCP instructions are worth.
+
 ## 0.1.2 (open-transfer-times-mcp only)
 
 - Added `mcpName` and `server.json` so the server can be listed in the

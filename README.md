@@ -140,7 +140,8 @@ zones, and sourced durations for MUC, NRT and LHR. It addresses most of the
 limitations above. Feedback is welcome on its discussion issue.
 
 The [agent evaluation](eval) measures how reliably an AI agent uses the server:
-36 questions in Chinese and English, graded on tool calls and answer accuracy.
+36 questions in Chinese and English, graded on tool calls and answer accuracy,
+for any model behind Anthropic, OpenAI, OpenRouter or a local Ollama.
 
 ## Repository layout
 
@@ -162,7 +163,7 @@ Requires Node.js 20+.
 npm install
 npm run check   # airport data validation, lint, all tests, extension build
 npm run smoke   # pack both npm packages, install them, call the MCP server
-npm run eval    # agent evaluation; needs ANTHROPIC_API_KEY (see eval/README.md)
+npm run eval    # agent evaluation: Anthropic, OpenAI, OpenRouter or local Ollama (eval/README.md)
 ```
 
 `npm run airports:build` regenerates the engine's data after editing
