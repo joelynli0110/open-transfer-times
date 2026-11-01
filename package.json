@@ -4,7 +4,8 @@
   "private": true,
   "description": "Open airport transfer dataset, connection-assessment engine, MCP server, and Google Flights extension.",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "eval"
   ],
   "scripts": {
     "airports:build": "node scripts/build-airport-data.js",
@@ -12,10 +13,11 @@
     "airports:catalog": "node scripts/generate-airport-catalog.js",
     "build": "node scripts/build-extension.js",
     "package:chrome": "npm run build && node scripts/package-chrome-extension.js",
-    "test": "node packages/core/test/run-tests.js && node packages/mcp/test/server.test.js && node extension/tests/run-tests.js",
+    "test": "node packages/core/test/run-tests.js && node packages/mcp/test/server.test.js && node eval/test/eval.test.js && node extension/tests/run-tests.js",
     "lint": "node scripts/check-js.js",
     "check": "npm run airports:check && npm run lint && npm test && npm run build",
-    "smoke": "node scripts/smoke-test-packages.js"
+    "smoke": "node scripts/smoke-test-packages.js",
+    "eval": "node eval/src/run.js"
   },
   "engines": {
     "node": ">=20"

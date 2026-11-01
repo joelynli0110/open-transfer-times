@@ -10,6 +10,8 @@ const roots = [
   path.join(repository, "packages", "core", "test"),
   path.join(repository, "packages", "mcp", "src"),
   path.join(repository, "packages", "mcp", "test"),
+  path.join(repository, "eval", "src"),
+  path.join(repository, "eval", "test"),
   __dirname
 ];
 const files = [];

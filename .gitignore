@@ -17,3 +17,4 @@ data/generated/
 benchmark/output/
 docs/roadmap.md
 node_modules/
+eval/results/

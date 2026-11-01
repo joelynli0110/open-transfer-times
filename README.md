@@ -81,6 +81,7 @@ presented as "no risk".
 | [`airports/`](airports) | One YAML file per airport: transfer allowances, sourced facts, citations. **Contributions welcome.** |
 | [`packages/core`](packages/core) | `open-transfer-times`: dependency-free engine that turns an itinerary into an explained assessment. |
 | [`packages/mcp`](packages/mcp) | `open-transfer-times-mcp`: MCP server so AI agents can check and rank connections, with cited sources. |
+| [`eval/`](eval) | Agent evaluation: 36 questions run through Claude with the MCP server attached, graded on tool use and answer accuracy. |
 | [`extension/`](extension) | Chrome extension that runs the engine on the itinerary open in Google Flights (beta). |
 | [`src/`](src), `pyproject.toml` | **Legacy** Python research code (delay simulation, EUROCONTROL benchmarks). Not published, not maintained, not used by the packages above. |
 
