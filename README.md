@@ -103,6 +103,9 @@ airport is sourced. To add or improve an airport, see
 
 This is not an official MCT table, and it does not predict delays.
 
+Next: [RFC 0001](docs/rfcs/0001-context-dependent-rules.md) proposes rules that depend on the trip
+(where you arrive from, which terminals, one ticket or two) and correct time zones. Feedback welcome.
+
 ## How the assessment works
 
 The model is deterministic. Structural feasibility starts with the scheduled
