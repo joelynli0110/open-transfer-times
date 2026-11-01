@@ -327,7 +327,11 @@ const outputs = [
 ];
 
 if (checkOnly) {
-  const stale = outputs.filter(([file, content]) => !fs.existsSync(file) || fs.readFileSync(file, "utf8") !== content);
+  // Compare ignoring line endings: Git on Windows (core.autocrlf) checks files
+  // out with CRLF, which is not a real difference.
+  const normalize = (text) => text.replace(/\r\n/g, "\n");
+  const stale = outputs.filter(([file, content]) =>
+    !fs.existsSync(file) || normalize(fs.readFileSync(file, "utf8")) !== normalize(content));
   if (stale.length) {
     console.error("Generated airport data is out of date. Run `npm run airports:build` and commit the result:");
     for (const [file] of stale) console.error(`  - ${path.relative(root, file)}`);

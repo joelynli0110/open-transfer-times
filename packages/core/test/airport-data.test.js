@@ -55,7 +55,7 @@ test("runtime data is immutable", () => {
 });
 
 // Validator behaviour: run the build script against a scratch copy of the data.
-function withScratchDataset(mutate) {
+function withScratchDataset(mutate, args = []) {
   const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "airport-data-"));
   fs.cpSync(path.join(repository, "airports"), path.join(scratch, "airports"), { recursive: true });
   fs.cpSync(path.join(repository, "regions"), path.join(scratch, "regions"), { recursive: true });
@@ -63,7 +63,7 @@ function withScratchDataset(mutate) {
   fs.copyFileSync(buildScript, path.join(scratch, "scripts", "build-airport-data.js"));
   fs.symlinkSync(path.join(repository, "node_modules"), path.join(scratch, "node_modules"), "dir");
   mutate(scratch);
-  const result = spawnSync(process.execPath, [path.join(scratch, "scripts", "build-airport-data.js")], { encoding: "utf8" });
+  const result = spawnSync(process.execPath, [path.join(scratch, "scripts", "build-airport-data.js"), ...args], { encoding: "utf8" });
   fs.rmSync(scratch, { recursive: true, force: true });
   return result;
 }
@@ -107,4 +107,27 @@ test("validator rejects a profile that disagrees with the Schengen list", () => 
     text.replace("    MUC: DE\n", "")));
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /MUC is in Schengen country DE but is not listed/);
+});
+
+test("--check ignores CRLF line endings from a Windows checkout", () => {
+  const toCrlf = (file) => fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/\r?\n/g, "\r\n"));
+  const result = withScratchDataset((scratch) => {
+    const generated = path.join(scratch, "packages", "core", "src", "data", "airport-data.generated.js");
+    const build = spawnSync(process.execPath, [path.join(scratch, "scripts", "build-airport-data.js")], { encoding: "utf8" });
+    assert.equal(build.status, 0, build.stderr);
+    toCrlf(generated);
+    toCrlf(path.join(scratch, "airports", "COVERAGE.md"));
+    toCrlf(path.join(scratch, "airports", "FRA.yaml"));
+  }, ["--check"]);
+  assert.equal(result.status, 0, result.stderr);
+});
+
+test("--check still detects real changes", () => {
+  const result = withScratchDataset((scratch) => {
+    spawnSync(process.execPath, [path.join(scratch, "scripts", "build-airport-data.js")]);
+    const target = path.join(scratch, "airports", "MUC.yaml");
+    fs.writeFileSync(target, fs.readFileSync(target, "utf8").replace("base_transfer: { minutes: 30", "base_transfer: { minutes: 31"));
+  }, ["--check"]);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /out of date/);
 });
