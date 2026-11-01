@@ -70,7 +70,11 @@ function withScratchDataset(mutate, args = []) {
 
 function edit(scratch, file, transform) {
   const target = path.join(scratch, file);
-  fs.writeFileSync(target, transform(fs.readFileSync(target, "utf8")));
+  const original = fs.readFileSync(target, "utf8");
+  const changed = transform(original);
+  // Guard against silent no-ops (e.g. a "\n" pattern on a CRLF checkout).
+  if (changed === original) throw new Error(`edit() did not change ${file}; the test's search pattern no longer matches`);
+  fs.writeFileSync(target, changed);
 }
 
 test("validator accepts the committed dataset", () => {
@@ -104,7 +108,7 @@ test("validator rejects a non-https source and a file name mismatch", () => {
 
 test("validator rejects a profile that disagrees with the Schengen list", () => {
   const result = withScratchDataset((scratch) => edit(scratch, "regions/schengen.yaml", (text) =>
-    text.replace("    MUC: DE\n", "")));
+    text.replace(/ {4}MUC: DE\r?\n/, "")));
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /MUC is in Schengen country DE but is not listed/);
 });
