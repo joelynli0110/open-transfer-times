@@ -32,7 +32,8 @@ test("lists the four read-only tools with schemas", async () => {
       assert.ok(tool.outputSchema, `${tool.name} declares an output schema`);
     }
     const check = tools.find((tool) => tool.name === "check_connection");
-    assert.deepEqual(check.inputSchema.required.sort(), ["arrival_time", "departure_time", "from", "to", "via"]);
+    assert.deepEqual(check.inputSchema.required.sort(), ["from", "to", "via"]);
+    assert.ok(check.inputSchema.properties.layover_minutes);
   } finally {
     await close();
   }
@@ -55,8 +56,9 @@ test("check_connection matches the core engine and cites airport facts", async (
     assert.equal(data.layover_minutes, 90);
     assert.equal(data.connection_airport.has_profile, true);
     assert.ok(data.connection_airport.facts.some((fact) => fact.source.url.startsWith("https://www.heathrow.com")));
-    const security = data.connection_airport.allowances.find((a) => a.step === "security_rescreening");
+    const security = data.steps.find((step) => step.code === "SECURITY_RESCREENING");
     assert.deepEqual(security.supporting_facts, ["transfer-security"]);
+    assert.equal(data.connection_airport.allowances, undefined, "assessments list counted steps, not every allowance");
     assert.match(result.content[0].text, /BER–LHR–PVG: REASONABLE/);
   } finally {
     await close();
@@ -152,5 +154,99 @@ test("the CLI speaks MCP over stdio", async () => {
     assert.equal(result.structuredContent.quality, "reasonable");
   } finally {
     await client.close();
+  }
+});
+
+test("steps list only what was counted and add up to the transfer time", async () => {
+  const { client, close } = await connect();
+  try {
+    // IST has a terminal_change allowance, but no terminal change happens here.
+    const ist = (await client.callTool({ name: "check_connection", arguments: {
+      from: "BER", via: "IST", to: "PVG", arrival_time: "2026-11-02T10:00", departure_time: "2026-11-02T11:15", ticket: "protected"
+    } })).structuredContent;
+    assert.deepEqual(ist.steps.map((step) => [step.code, step.minutes]), [["AIRPORT_TRANSFER", 35], ["SECURITY_RESCREENING", 10]]);
+    assert.equal(ist.transfer_process_minutes, 45);
+
+    const cases = [
+      { from: "BER", via: "FRA", to: "PVG", layover_minutes: 50 },
+      { from: "BER", via: "LHR", to: "PVG", layover_minutes: 120, terminal_change: true, baggage_recheck: true, ticket: "separate" },
+      { from: "BER", via: "VIE", to: "ZZZ", layover_minutes: 90 },
+      { from: "JFK", via: "MUC", to: "BER", layover_minutes: 90, arrival_terminal: "1", departure_terminal: "2" }
+    ];
+    for (const args of cases) {
+      const data = (await client.callTool({ name: "check_connection", arguments: args })).structuredContent;
+      const total = data.steps.reduce((sum, step) => sum + step.minutes, 0);
+      assert.equal(total, data.transfer_process_minutes, JSON.stringify(args));
+    }
+  } finally {
+    await close();
+  }
+});
+
+test("summary text names the counted steps and the scope of each fact", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "FRA", to: "PVG", layover_minutes: 50 } });
+    const text = result.content[0].text;
+    assert.match(text, /Steps counted: Move through airport 35 min \(heuristic\); Allow for Schengen border control 20 min \(heuristic\)\. No other steps were counted\./);
+    assert.match(text, /\[scope: Lufthansa-operated connections only\]/);
+  } finally {
+    await close();
+  }
+});
+
+test("layover_minutes works without dates and matches the times-based result", async () => {
+  const { client, close } = await connect();
+  try {
+    const byDuration = (await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "DOH", to: "PVG", layover_minutes: 120 } })).structuredContent;
+    const byTimes = (await client.callTool({ name: "check_connection", arguments: {
+      from: "BER", via: "DOH", to: "PVG", arrival_time: "2026-09-20T23:10", departure_time: "2026-09-21T01:10"
+    } })).structuredContent;
+    assert.equal(byDuration.layover_source, "duration");
+    assert.equal(byTimes.layover_source, "times");
+    for (const key of ["quality", "layover_minutes", "transfer_process_minutes", "buffer_minutes"]) {
+      assert.equal(byDuration[key], byTimes[key], key);
+    }
+    assert.deepEqual(byDuration.steps, byTimes.steps);
+  } finally {
+    await close();
+  }
+});
+
+test("missing or conflicting layover information is a tool error", async () => {
+  const { client, close } = await connect();
+  try {
+    const none = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG" } });
+    assert.equal(none.isError, true);
+    assert.match(none.content[0].text, /layover_minutes/);
+    const half = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG", arrival_time: "2026-11-02T10:00" } });
+    assert.equal(half.isError, true);
+    const conflict = await client.callTool({ name: "check_connection", arguments: {
+      ...LHR_CONNECTION, layover_minutes: 60
+    } });
+    assert.equal(conflict.isError, true);
+    assert.match(conflict.content[0].text, /does not match the given times \(90 min\)/);
+    const tooLong = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG", layover_minutes: 2000 } });
+    assert.equal(tooLong.isError, true);
+  } finally {
+    await close();
+  }
+});
+
+test("compare_connections accepts durations, as in 'Frankfurt 50 min vs Istanbul 3 h vs Doha 2 h'", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "compare_connections", arguments: { options: [
+      { id: "FRA 50m", from: "BER", via: "FRA", to: "PVG", layover_minutes: 50 },
+      { id: "IST 3h", from: "BER", via: "IST", to: "PVG", layover_minutes: 180 },
+      { id: "DOH 2h", from: "BER", via: "DOH", to: "PVG", layover_minutes: 120 }
+    ] } });
+    assert.ok(!result.isError);
+    const ranked = result.structuredContent.ranked;
+    assert.deepEqual(ranked.map((entry) => entry.id), ["IST 3h", "DOH 2h", "FRA 50m"]);
+    assert.deepEqual(ranked.map((entry) => entry.assessment.buffer_minutes), [135, 80, -5]);
+    assert.ok(ranked.every((entry) => entry.assessment.layover_source === "duration"));
+  } finally {
+    await close();
   }
 });
