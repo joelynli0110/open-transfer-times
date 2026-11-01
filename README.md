@@ -1,8 +1,69 @@
 # Open Transfer Times
 
-**Is this flight connection comfortable, tight, or risky?** An open, sourced
-dataset of airport transfer rules, a deterministic engine that explains its
-verdict, and a Google Flights extension built on top.
+[![CI](https://github.com/joelynli0110/open-transfer-times/actions/workflows/ci.yml/badge.svg)](https://github.com/joelynli0110/open-transfer-times/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/open-transfer-times-mcp?label=open-transfer-times-mcp)](https://www.npmjs.com/package/open-transfer-times-mcp)
+
+**Is this flight connection comfortable, tight, or risky?** Open, cited airport
+transfer data, an engine that explains its verdict, and an MCP server so AI
+agents can check connections before recommending a flight.
+
+## Try it in 30 seconds
+
+Ask an AI agent to compare layovers. With the MCP server connected, it gets:
+
+```text
+1. IST 3 h BER–IST–PVG: comfortable, margin 135 min, protected itinerary, medium confidence
+2. VIE 2 h BER–VIE–PVG: comfortable, margin 65 min, protected itinerary, low confidence
+3. FRA 50 min BER–FRA–PVG: risky, margin -5 min, protected itinerary, medium confidence
+```
+
+Each result lists the transfer steps it counted, a confidence level, and the
+official sources behind the airport data:
+
+```text
+BER–LHR–PVG: REASONABLE — A practical connection on one ticket.
+Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
+Layover 90 min, transfer steps 55 min, margin 35 min.
+Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
+```
+
+### Use it with Claude Desktop
+
+Add to `claude_desktop_config.json`, then fully restart Claude:
+
+```json
+{
+  "mcpServers": {
+    "open-transfer-times": { "command": "npx", "args": ["-y", "open-transfer-times-mcp"] }
+  }
+}
+```
+
+Then ask, in a new chat: *"Compare a 50-minute connection in Frankfurt, 3 hours
+in Istanbul and 2 hours in Doha from Berlin to Shanghai — which is safest?"*
+Tools and options: [packages/mcp](packages/mcp).
+
+### Use it from code
+
+```bash
+npm install open-transfer-times
+```
+
+```js
+const { assessConnection } = require("open-transfer-times");
+
+const result = assessConnection(
+  { segments: [
+    { origin: "BER", destination: "LHR", arrivalTime: "2026-09-20T10:00" },
+    { origin: "LHR", destination: "PVG", departureTime: "2026-09-20T11:30" }
+  ] },
+  { ticketStatus: "protected" }
+);
+result.quality;          // "reasonable"
+result.confidence.level; // "medium"
+```
+
+## Why this exists
 
 Airlines and booking systems decide whether a connection is feasible using
 *minimum connection times* (MCT) — commercial data sold by IATA and schedule
@@ -10,24 +71,18 @@ providers. Open flight-search tools can find itineraries but cannot say whether
 a layover is realistic. This project collects what airports and airlines
 publish openly, cites every fact, and marks every estimate as an estimate.
 
+The **rating** (comfortable → risky) and the **confidence** (high → low) are
+reported separately: an airport without a profile, or a route whose border
+situation is unknown, is always *low confidence* — missing data is never
+presented as "no risk".
+
 | Part | What it is |
 | --- | --- |
 | [`airports/`](airports) | One YAML file per airport: transfer allowances, sourced facts, citations. **Contributions welcome.** |
 | [`packages/core`](packages/core) | `open-transfer-times`: dependency-free engine that turns an itinerary into an explained assessment. |
 | [`packages/mcp`](packages/mcp) | `open-transfer-times-mcp`: MCP server so AI agents can check and rank connections, with cited sources. |
 | [`extension/`](extension) | Chrome extension that runs the engine on the itinerary open in Google Flights (beta). |
-
-```js
-const { assessConnection } = require("open-transfer-times");
-
-assessConnection(
-  { segments: [
-    { origin: "BER", destination: "LHR", arrivalTime: "2026-09-20T10:00:00" },
-    { origin: "LHR", destination: "PVG", departureTime: "2026-09-20T11:30:00" }
-  ] },
-  { ticketStatus: "protected" }
-).quality; // "reasonable" — 90 min layover, 55 min of transfer steps
-```
+| [`src/`](src), `pyproject.toml` | **Legacy** Python research code (delay simulation, EUROCONTROL benchmarks). Not published, not maintained, not used by the packages above. |
 
 ## Airport data
 

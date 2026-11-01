@@ -31,11 +31,26 @@ result.quality;                  // "reasonable"
 result.structuralBufferMinutes;  // 35
 result.processFactors;           // why: border control, security, margin, ...
 result.verdict;                  // one-line recommendation
+result.confidence;               // { level: "medium", reasons: [{ code, explanation }] }
 
 getAirportProfile("LHR").facts;  // sourced statements behind the LHR rules
 ```
 
 Times are local wall-clock times at the connection airport (`YYYY-MM-DDTHH:mm`).
+Exactly two segments are accepted; itineraries with more connections throw an
+error, so assess each connection separately.
+
+### Confidence
+
+`quality` says how the connection looks; `confidence` says how far that can be
+trusted. They are independent: a long layover at an airport without a profile
+is still `comfortable`, but with `low` confidence.
+
+| Level | When |
+| --- | --- |
+| `high` | Every counted step has a sourced duration. (No airport reaches this yet.) |
+| `medium` | The airport has a profile, but durations are heuristic. |
+| `low` | No airport profile (`BASELINE_AIRPORT`), the airport's border situation is not modelled (`CONNECTION_ZONE_UNKNOWN`), or the route could not be placed inside or outside Schengen (`ROUTE_ZONE_UNKNOWN`). |
 
 ### Options
 

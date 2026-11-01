@@ -7,6 +7,9 @@ const { AIRPORT_RULES, FALLBACK_RULE } = require("open-transfer-times/src/airpor
 const { version } = require("../package.json");
 
 const QUALITY_RANK = { comfortable: 0, reasonable: 1, tight: 2, risky: 3 };
+// Equal physical quality: a protected ticket beats an unknown one beats a self-transfer.
+const PROTECTION_RANK = { protected: 0, unknown: 1, separate: 2 };
+const CONFIDENCE_RANK = { high: 0, medium: 1, low: 2 };
 const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/;
 const DISCLAIMER =
   "Structural estimate from scheduled times and published airport information. " +
@@ -80,6 +83,10 @@ const assessmentOutput = z.object({
   buffer_minutes: z.number(),
   steps: z.array(stepOutput),
   factors: z.array(z.object({ code: z.string(), label: z.string(), severity: z.string(), explanation: z.string() })),
+  confidence: z.object({
+    level: z.enum(["high", "medium", "low"]),
+    reasons: z.array(z.object({ code: z.string(), explanation: z.string() }))
+  }).describe("How far the estimate can be trusted, independent of the quality rating. Low means key information is missing."),
   ticket: z.object({ status: z.string(), label: z.string(), detail: z.string() }),
   connection_airport: connectionAirportOutput,
   disclaimer: z.string()
@@ -220,6 +227,10 @@ function assess(input) {
     buffer_minutes: result.structuralBufferMinutes,
     steps,
     factors: result.processFactors.map(({ code, label, severity, explanation }) => ({ code, label, severity, explanation })),
+    confidence: {
+      level: result.confidence.level,
+      reasons: result.confidence.reasons.map(({ code, explanation }) => ({ code, explanation }))
+    },
     ticket: { ...result.ticketProtection },
     connection_airport: connectionAirport,
     disclaimer: DISCLAIMER
@@ -233,6 +244,9 @@ function summarize(assessment) {
     : "standard baseline (no airport-specific profile)";
   return [
     `${assessment.route}: ${assessment.quality.toUpperCase()} — ${assessment.verdict}`,
+    `Confidence: ${assessment.confidence.level.toUpperCase()}${assessment.confidence.level === "low"
+      ? ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")} Treat the rating as a rough indication only.`
+      : ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")}`}`,
     `Layover ${assessment.layover_minutes} min, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.buffer_minutes} min.`,
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
     `Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`,
@@ -282,7 +296,8 @@ function createServer() {
     title: "Compare and rank flight connections",
     description:
       "Assess several one-stop itineraries (for example the results of a flight search) and rank them from safest to " +
-      "riskiest connection. Each option takes times or layover_minutes, like check_connection. Use the optional id to map " +
+      "riskiest connection: by transfer quality, then ticket protection (one ticket before unknown before self-transfer), " +
+      "then confidence, then remaining margin. Each option takes times or layover_minutes, like check_connection. Use the optional id to map " +
       "results back to your own options (e.g. an offer id or price).",
     inputSchema: {
       options: z.array(connectionInput.extend({ id: z.string().optional().describe("Your identifier for this option") }))
@@ -309,6 +324,8 @@ function createServer() {
     evaluated.sort((a, b) => {
       if (a.error || b.error) return (a.error ? 1 : 0) - (b.error ? 1 : 0) || a.index - b.index;
       return QUALITY_RANK[a.assessment.quality] - QUALITY_RANK[b.assessment.quality]
+        || PROTECTION_RANK[a.assessment.ticket.status] - PROTECTION_RANK[b.assessment.ticket.status]
+        || CONFIDENCE_RANK[a.assessment.confidence.level] - CONFIDENCE_RANK[b.assessment.confidence.level]
         || b.assessment.buffer_minutes - a.assessment.buffer_minutes
         || a.index - b.index;
     });
@@ -320,7 +337,7 @@ function createServer() {
     const text = ranked.map((entry) => {
       const label = entry.id ? `${entry.id} ` : "";
       return entry.assessment
-        ? `${entry.rank}. ${label}${entry.assessment.route}: ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}`
+        ? `${entry.rank}. ${label}${entry.assessment.route}: ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence`
         : `${entry.rank}. ${label}could not be assessed: ${entry.error}`;
     }).join("\n");
     return { content: [{ type: "text", text }], structuredContent: { ranked, disclaimer: DISCLAIMER } };

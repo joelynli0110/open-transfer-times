@@ -104,3 +104,31 @@ test("airport catalog supplies names without pretending to have airport-specific
   assert.equal(result.airportName, "Budapest Liszt Ferenc International Airport");
   assert.equal(result.airportSpecificData, false);
 });
+
+test("rejects itineraries with more than one connection instead of ignoring later segments", () => {
+  const threeSegments = {
+    segments: [
+      { origin: "BER", destination: "IST", arrivalTime: "2026-09-20T10:00:00" },
+      { origin: "IST", destination: "DOH", departureTime: "2026-09-20T13:00:00", arrivalTime: "2026-09-20T17:00:00" },
+      { origin: "DOH", destination: "PVG", departureTime: "2026-09-20T17:20:00" }
+    ]
+  };
+  assert.throws(() => assessConnection(threeSegments), /Only one-stop itineraries \(two segments\) are supported; got 3 segments/);
+});
+
+test("confidence is separate from quality: missing data is low confidence, never silent", () => {
+  const cases = [
+    // [origin, connection, destination, expected level, expected reason codes]
+    ["BER", "IST", "PVG", "medium", ["HEURISTIC_ALLOWANCES"]],
+    ["BER", "VIE", "JFK", "low", ["BASELINE_AIRPORT"]],
+    ["ZZZ", "XXX", "YYY", "low", ["BASELINE_AIRPORT", "CONNECTION_ZONE_UNKNOWN"]],
+    ["ZZZ", "FRA", "YYY", "low", ["ROUTE_ZONE_UNKNOWN"]]
+  ];
+  for (const [origin, connection, destination, level, codes] of cases) {
+    const result = assessConnection(itinerary(origin, connection, destination, "2026-09-20T10:00:00", "2026-09-20T13:00:00"), { ticketStatus: "protected" });
+    assert.equal(result.quality, "comfortable", `${connection}: a long layover still rates comfortable`);
+    assert.equal(result.confidence.level, level, connection);
+    assert.deepEqual(result.confidence.reasons.map((reason) => reason.code), codes, connection);
+    for (const reason of result.confidence.reasons) assert.ok(reason.explanation.length > 20);
+  }
+});

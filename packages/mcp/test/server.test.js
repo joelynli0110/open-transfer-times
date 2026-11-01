@@ -250,3 +250,47 @@ test("compare_connections accepts durations, as in 'Frankfurt 50 min vs Istanbul
     await close();
   }
 });
+
+test("compare_connections puts a protected ticket ahead of a longer self-transfer", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "compare_connections", arguments: { options: [
+      { id: "self-transfer 4h", from: "BER", via: "IST", to: "PVG", layover_minutes: 240, ticket: "separate" },
+      { id: "unknown 3h30", from: "BER", via: "IST", to: "PVG", layover_minutes: 210 },
+      { id: "one ticket 3h", from: "BER", via: "IST", to: "PVG", layover_minutes: 180, ticket: "protected" }
+    ] } });
+    const ranked = result.structuredContent.ranked;
+    assert.ok(ranked.every((entry) => entry.assessment.quality === "comfortable"));
+    assert.deepEqual(ranked.map((entry) => entry.id), ["one ticket 3h", "unknown 3h30", "self-transfer 4h"]);
+  } finally {
+    await close();
+  }
+});
+
+test("compare_connections prefers better data when quality and protection tie", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "compare_connections", arguments: { options: [
+      { id: "VIE baseline", from: "BER", via: "VIE", to: "JFK", layover_minutes: 240, ticket: "protected" },
+      { id: "MUC profile", from: "BER", via: "MUC", to: "JFK", layover_minutes: 180, ticket: "protected" }
+    ] } });
+    const ranked = result.structuredContent.ranked;
+    assert.deepEqual(ranked.map((entry) => [entry.id, entry.assessment.confidence.level]), [["MUC profile", "medium"], ["VIE baseline", "low"]]);
+    assert.match(result.content[0].text, /low confidence/);
+  } finally {
+    await close();
+  }
+});
+
+test("low confidence is stated up front in the summary", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "check_connection", arguments: { from: "ZZZ", via: "XXX", to: "YYY", layover_minutes: 120 } });
+    assert.equal(result.structuredContent.quality, "comfortable");
+    assert.equal(result.structuredContent.confidence.level, "low");
+    const [, confidenceLine] = result.content[0].text.split("\n");
+    assert.match(confidenceLine, /^Confidence: LOW — No transfer profile for this airport.*Treat the rating as a rough indication only\.$/);
+  } finally {
+    await close();
+  }
+});

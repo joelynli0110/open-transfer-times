@@ -79,6 +79,9 @@
   function assessConnection(itinerary, options = {}) {
     const segments = itinerary?.segments || [];
     if (segments.length < 2) throw new Error("A connecting itinerary requires at least two segments.");
+    if (segments.length > 2) {
+      throw new Error(`Only one-stop itineraries (two segments) are supported; got ${segments.length} segments. Assess each connection separately.`);
+    }
     const inbound = segments[0];
     const outbound = segments[1];
     const connectionAirport = inbound.destination;
@@ -103,6 +106,7 @@
     checks.push(check("AIRPORT_TRANSFER", "Move through airport", `${rule.baseTransferMinutes} min estimate`, layoverMinutes >= deductions));
 
     const inboundZone = travelZone(inbound.origin);
+    let routeZoneUnknown = false;
     const connectionZone = travelZone(connectionAirport);
     const outboundZone = travelZone(outbound.destination);
     const endpointZonesKnown = inboundZone !== "unknown" && outboundZone !== "unknown";
@@ -113,6 +117,7 @@
       processFactors.push(factor("SCHENGEN_BORDER_CONTROL", "Schengen passport control may apply", "high", "The transfer crosses a Schengen boundary at a Schengen connection airport."));
       checks.push(check("SCHENGEN_BORDER_CONTROL", "Allow for Schengen border control", `${rule.passportMinutes} min estimate`, layoverMinutes >= deductions));
     } else if (connectionZone === "schengen" && !endpointZonesKnown) {
+      routeZoneUnknown = true;
       deductions += 10;
       processFactors.push(factor("INTERNATIONAL_TRANSFER", "International transfer formalities may apply", "medium", "The route zone could not be determined confidently."));
       checks.push(check("INTERNATIONAL_TRANSFER", "Complete transfer formalities", "10 min", layoverMinutes >= deductions));
@@ -178,9 +183,48 @@
       protectionAssessment,
       ticketProtection,
       verdict: verdictFor(quality, ticketStatus),
+      confidence: assessConfidence({
+        airportProfile: rulesModule.getAirportProfile(connectionAirport),
+        connectionZone,
+        routeZoneUnknown,
+        checks
+      }),
       modelVersion: "structural-v2"
     };
   }
 
-  return { assessConnection, minutesBetween, qualityForBuffer };
+  // How much the assessment can be trusted, separate from how good the
+  // connection looks. A missing airport profile or an undetermined border
+  // situation must never read as "no risk".
+  const CONFIDENCE_REASONS = {
+    BASELINE_AIRPORT: "No transfer profile for this airport; generic baseline allowances were used.",
+    CONNECTION_ZONE_UNKNOWN: "The border situation at this airport is not modelled, so passport control was not counted.",
+    ROUTE_ZONE_UNKNOWN: "The origin or destination could not be placed inside or outside Schengen; a generic formalities allowance was used.",
+    HEURISTIC_ALLOWANCES: "The transfer-step durations are rule-of-thumb estimates, not sourced figures."
+  };
+
+  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks }) {
+    const reasons = [];
+    if (!airportProfile) reasons.push("BASELINE_AIRPORT");
+    if (connectionZone === "unknown") reasons.push("CONNECTION_ZONE_UNKNOWN");
+    if (routeZoneUnknown) reasons.push("ROUTE_ZONE_UNKNOWN");
+    const stepKeys = {
+      AIRPORT_TRANSFER: "baseTransfer",
+      SCHENGEN_BORDER_CONTROL: "passportControl",
+      TERMINAL_CHANGE: "terminalChange",
+      SECURITY_RESCREENING: "securityRescreening"
+    };
+    const counted = checks.filter((item) => !/^Not indicated/.test(item.detail));
+    const allSourced = Boolean(airportProfile) && counted.every((item) => {
+      const key = stepKeys[item.code];
+      return key && airportProfile.allowances[key].basis === "sourced";
+    });
+    if (!allSourced && reasons.length === 0) reasons.push("HEURISTIC_ALLOWANCES");
+    const level = reasons.some((code) => code !== "HEURISTIC_ALLOWANCES")
+      ? "low"
+      : reasons.length ? "medium" : "high";
+    return { level, reasons: reasons.map((code) => ({ code, explanation: CONFIDENCE_REASONS[code] })) };
+  }
+
+  return { assessConnection, minutesBetween, qualityForBuffer, CONFIDENCE_REASONS };
 });

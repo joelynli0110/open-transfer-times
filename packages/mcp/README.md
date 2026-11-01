@@ -17,8 +17,8 @@ All tools are read-only.
 
 | Tool | What it does |
 | --- | --- |
-| `check_connection` | Assess one connection: `comfortable` / `reasonable` / `tight` / `risky`, the layover, each transfer step that was counted with its minutes, remaining margin, reasons, ticket-protection exposure, and the connection airport's cited facts. |
-| `compare_connections` | Assess 2–20 itineraries (e.g. flight-search results) and rank them from safest to riskiest. Pass your own `id` per option to map results back. |
+| `check_connection` | Assess one connection: `comfortable` / `reasonable` / `tight` / `risky`, a separate confidence level (`high` / `medium` / `low`) with reasons, the layover, each transfer step that was counted with its minutes, remaining margin, ticket-protection exposure, and the connection airport's cited facts. |
+| `compare_connections` | Assess 2–20 itineraries (e.g. flight-search results) and rank them: by transfer quality, then ticket protection (one ticket → unknown → self-transfer), then confidence, then margin. Pass your own `id` per option to map results back. |
 | `get_airport_profile` | An airport's transfer allowances, whether each is `heuristic` or `sourced`, and its cited facts with official links. |
 | `list_airports` | Airports with their own profile and how well each is sourced. |
 
@@ -41,6 +41,7 @@ Example result text:
 
 ```text
 BER–LHR–PVG: REASONABLE — A practical connection on one ticket.
+Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 35 min.
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
 Factors: Transfer through London Heathrow; Additional security screening may apply; Moderate transfer margin.
@@ -52,7 +53,9 @@ Airport facts are context, not extra steps. Apply a fact only where its scope ma
 - Heathrow does not publish a minimum connection time; travellers are told to check their airline's figure, which does not apply to separately booked flights.
 ```
 
-`steps` always adds up to `transfer_process_minutes`. Facts are listed with
+`confidence.level` is `low` whenever the airport has no profile or the border
+situation could not be determined; the summary then says to treat the rating
+as a rough indication only. `steps` always adds up to `transfer_process_minutes`. Facts are listed with
 their `scope` (for example "Lufthansa-operated connections only") so the agent
 does not apply them to the wrong trip.
 

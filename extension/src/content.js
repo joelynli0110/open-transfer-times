@@ -199,7 +199,9 @@
     const meta = qualityMeta[assessment.quality];
     root.dataset.quality = assessment.quality;
     setBadge(assessment.quality, meta.label, `${assessment.layoverMinutes} min · ${assessment.connectionAirport}`);
-    elements.status.textContent = "";
+    elements.status.textContent = assessment.confidence?.level === "low"
+      ? `Low confidence: ${assessment.confidence.reasons[0].explanation}`
+      : "";
     elements.qualityMark.textContent = meta.mark;
     elements.quality.textContent = meta.label;
     elements.layover.textContent = `${assessment.layoverMinutes} min at ${assessment.connectionAirport}`;

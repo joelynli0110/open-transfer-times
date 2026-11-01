@@ -1,0 +1,32 @@
+# Changelog
+
+## 0.1.1
+
+Addresses the first external review: results now say how far they can be
+trusted, and ranking accounts for ticket protection.
+
+### Added
+- `confidence` on every assessment (`high` / `medium` / `low` with reasons),
+  reported separately from the quality rating. Airports without a profile and
+  routes whose border situation cannot be determined are always `low`, so
+  missing data is never presented as "no risk". Shown in the MCP summary and,
+  when low, in the Chrome extension panel.
+- GitHub Actions CI on Ubuntu and Windows, Node 20 and 22.
+- `npm run smoke`: packs both npm packages, installs the tarballs and calls the
+  MCP server over stdio.
+- README quick start for the MCP server and the library.
+
+### Changed
+- `compare_connections` ranks by quality, then ticket protection (one ticket →
+  unknown → self-transfer), then confidence, then margin. Previously a longer
+  self-transfer could outrank a protected connection.
+- The engine rejects itineraries with more than two segments instead of
+  silently ignoring later connections.
+
+Quality ratings and transfer-step minutes are unchanged from 0.1.0.
+
+## 0.1.0
+
+First public release: open airport dataset (13 hubs with cited facts),
+`open-transfer-times` engine, `open-transfer-times-mcp` server, Chrome
+extension beta.
