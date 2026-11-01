@@ -294,3 +294,14 @@ test("low confidence is stated up front in the summary", async () => {
     await close();
   }
 });
+
+test("server.json for the MCP Registry matches package.json", () => {
+  const pkg = require("../package.json");
+  const server = require("../server.json");
+  assert.equal(server.name, pkg.mcpName, "server.json name must equal package.json mcpName");
+  assert.match(server.name, /^io\.github\.joelynli0110\//);
+  assert.equal(server.version, pkg.version);
+  assert.equal(server.packages[0].identifier, pkg.name);
+  assert.equal(server.packages[0].version, pkg.version);
+  assert.ok(server.description.length <= 100, "registry limit is 100 characters");
+});

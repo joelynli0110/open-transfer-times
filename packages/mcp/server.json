@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.joelynli0110/open-transfer-times",
+  "title": "Open Transfer Times",
+  "description": "Check if a flight connection is comfortable, tight or risky, with cited airport data.",
+  "repository": {
+    "url": "https://github.com/joelynli0110/open-transfer-times",
+    "source": "github",
+    "subfolder": "packages/mcp"
+  },
+  "version": "0.1.2",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "open-transfer-times-mcp",
+      "version": "0.1.2",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

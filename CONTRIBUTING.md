@@ -5,7 +5,7 @@ sourced facts about how transfers work at a specific airport. You do not need
 to touch any code to add or improve an airport.
 
 See [`airports/COVERAGE.md`](airports/COVERAGE.md) for which airports exist and
-how well each one is sourced. Good first issues: airports marked `heuristic`, allowances whose minutes are still estimates, and the "Open question" comments in airport files.
+how well each one is sourced. To propose data without writing YAML, open an issue with the **Airport data** form. Good first issues: airports marked `heuristic`, allowances whose minutes are still estimates, and the "Open question" comments in airport files.
 
 ## Ground rules for data
 

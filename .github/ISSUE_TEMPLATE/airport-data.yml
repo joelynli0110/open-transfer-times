@@ -1,0 +1,53 @@
+name: Airport data
+description: Add an airport, add sources, or correct transfer data for an airport.
+title: "[data] <IATA>: <what to add or fix>"
+labels: ["data"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping. Airport data lives in `airports/<IATA>.yaml`; the format and rules are in
+        [CONTRIBUTING.md](https://github.com/joelynli0110/open-transfer-times/blob/main/CONTRIBUTING.md).
+        Every fact needs an official source (airport operator, airline, government). Blogs, forums and
+        AI-generated text are not sources.
+  - type: input
+    id: airport
+    attributes:
+      label: Airport (IATA code)
+      placeholder: VIE
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of change?
+      options:
+        - Add a new airport profile
+        - Add or replace a source for an existing airport
+        - Correct a fact or a minute value
+        - Report a rule the data format cannot express
+    validations:
+      required: true
+  - type: textarea
+    id: facts
+    attributes:
+      label: Facts and where they come from
+      description: One fact per line, each with the official page it comes from. Say what the page states, nothing more.
+      placeholder: |
+        Transfer passengers between Schengen and non-Schengen flights go through passport control.
+        Source: https://www.example-airport.com/transfer (retrieved 2026-11-01)
+    validations:
+      required: true
+  - type: textarea
+    id: minutes
+    attributes:
+      label: Minute values (optional)
+      description: Durations you propose for base transfer, passport control, terminal change or security re-screening, and whether a source states them.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I opened every source myself; none is a blog, forum or AI answer.
+          required: true
+        - label: I'm willing to open a pull request for this (not required).

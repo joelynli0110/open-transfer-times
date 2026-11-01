@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/joelynli0110/open-transfer-times.git",
+    "url": "git+https://github.com/joelynli0110/open-transfer-times.git",
     "directory": "packages/core"
   },
   "engines": {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 (open-transfer-times-mcp only)
+
+- Added `mcpName` and `server.json` so the server can be listed in the
+  official MCP Registry as `io.github.joelynli0110/open-transfer-times`.
+- Issue forms for airport data and bug reports.
+- No behaviour changes. The `open-transfer-times` library stays at 0.1.1.
+
 ## 0.1.1
 
 Addresses the first external review: results now say how far they can be
