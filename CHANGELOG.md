@@ -6,6 +6,14 @@
   any OpenAI-compatible endpoint, with a separate judge provider;
   `npm run eval:compare` puts runs side by side; `--no-server-instructions`
   measures what the MCP instructions are worth.
+- Eval progress is saved after every case; `--resume <results.json>` continues
+  an interrupted run with the same settings. A run stops after three
+  connection errors in a row instead of failing every remaining case.
+- `--no-think` for reasoning models (Qwen3 `/no_think`); `<think>` blocks are
+  removed from answers and judge replies.
+- Ollama defaults to `http://127.0.0.1:11434/v1` (Node can resolve `localhost`
+  to IPv6, which Ollama does not listen on); connection failures name the
+  endpoint and the cause.
 
 ## 0.1.2 (open-transfer-times-mcp only)
 

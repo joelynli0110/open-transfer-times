@@ -43,11 +43,27 @@ lists all options.
 | `anthropic` | `ANTHROPIC_API_KEY` | Default; model defaults to `claude-sonnet-5-5`. |
 | `openai` | `OPENAI_API_KEY` | `--model` required. |
 | `openrouter` | `OPENROUTER_API_KEY` | One key for many vendors' models; `--model` required. |
-| `ollama` | none | Local, `http://localhost:11434/v1`. Use a model that supports tool calling. |
+| `ollama` | none | Local, `http://127.0.0.1:11434/v1`. Use a model with `tools` under Capabilities in `ollama show <model>`. |
 | `compatible` | `--api-key-env` (default `OPENAI_API_KEY`) | Any Chat Completions endpoint; `--base-url` required. |
 
 Results are written to `eval/results/` (git-ignored) as a markdown report and
-the full JSON transcripts.
+the full JSON transcripts. The JSON is saved after every case.
+
+### Long runs and local models
+
+- **Interrupted?** Re-run with the same options plus
+  `--resume eval/results/<run>.json`. Finished cases are kept, failed ones are
+  retried, and a run with different settings is refused so results stay
+  comparable. If the model stops answering, the run stops after three
+  connection errors in a row and prints the resume command.
+- **Reasoning models are slow.** qwen3 and similar models write a long
+  thinking phase first. `--no-think` asks them to skip it (Qwen3's
+  `/no_think` switch); thinking text is always removed before grading.
+- **Memory.** A local agent plus a local judge means two models in memory, and
+  a model that does not fit in GPU memory runs partly on the CPU (check with
+  `ollama ps`). Prefer a hosted judge. To stay fully local, start Ollama with
+  `OLLAMA_MAX_LOADED_MODELS=1` so it swaps models instead of holding both.
+- Try the setup on `--limit 3` before a full run.
 
 ### Comparing models
 

@@ -5,7 +5,7 @@
 //   npm run eval -- [--provider anthropic|openai|openrouter|ollama|compatible] [--model <id>]
 //                   [--base-url <url>] [--api-key-env <ENV_NAME>]
 //                   [--judge-provider <p>] [--judge-model <id>] [--judge-base-url <url>] [--judge-api-key-env <ENV>]
-//                   [--no-server-instructions]
+//                   [--no-server-instructions] [--no-think] [--resume <results.json>]
 //                   [--only <id,...>] [--category <name>] [--limit <n>] [--repeat <n>]
 //
 // Writes eval/results/<timestamp>-<model>.json and .md and prints the summary.
@@ -25,11 +25,16 @@ const VALUE_FLAGS = {
 };
 
 function parseArgs(argv) {
-  const args = { repeat: 1, serverInstructions: true };
+  const args = { repeat: 1, serverInstructions: true, noThink: false };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     if (flag === "--help") args.help = true;
     else if (flag === "--no-server-instructions") args.serverInstructions = false;
+    else if (flag === "--no-think") args.noThink = true;
+    else if (flag === "--resume") {
+      args.resume = argv[i + 1];
+      i += 1;
+    }
     else if (VALUE_FLAGS[flag]) {
       const key = VALUE_FLAGS[flag];
       const value = argv[i + 1];
@@ -56,32 +61,61 @@ function systemPrompt(server, serverInstructions) {
     : DEFAULT_SYSTEM;
 }
 
-async function evaluate({ agent, judge, cases, repeat = 1, serverInstructions = true, onProgress = () => {} }) {
+const runKey = (id, run) => `${id}#${run}`;
+// After this many consecutive "could not reach the model" errors, stop instead
+// of marking every remaining case as failed.
+const MAX_CONSECUTIVE_CONNECTION_ERRORS = 3;
+
+/**
+ * @param {object} options
+ * @param {Set<string>} [options.skip]       `${id}#${run}` keys already done (when resuming)
+ * @param {(result) => void} [options.onResult]  called after every case, e.g. to save progress
+ */
+async function evaluate({ agent, judge, cases, repeat = 1, serverInstructions = true, skip = new Set(), onResult = () => {}, onProgress = () => {} }) {
   const server = await connectServer();
   const system = systemPrompt(server, serverInstructions);
   const results = [];
   const usage = { input_tokens: 0, output_tokens: 0 };
+  let connectionErrors = 0;
+  let stoppedEarly = null;
   try {
-    for (const testCase of cases) {
+    outer: for (const testCase of cases) {
       for (let run = 1; run <= repeat; run += 1) {
+        if (skip.has(runKey(testCase.id, run))) continue;
         const base = { id: testCase.id, category: testCase.category, prompt: testCase.prompt, run };
+        let result;
         try {
           const transcript = await agent.runAgent({ server, prompt: testCase.prompt, system });
           usage.input_tokens += transcript.usage.input_tokens;
           usage.output_tokens += transcript.usage.output_tokens;
           const deterministic = deterministicChecks(testCase, transcript);
           const verdicts = await judgeAnswer({ judge, testCase, transcript });
-          results.push({ ...base, transcript, deterministic, judge: verdicts });
+          result = { ...base, transcript, deterministic, judge: verdicts };
+          connectionErrors = 0;
         } catch (error) {
-          results.push({ ...base, error: String(error.message || error), deterministic: [{ id: "run_completed", passed: false, detail: String(error.message || error) }], judge: {} });
+          const message = String(error.message || error);
+          result = { ...base, error: message, deterministic: [{ id: "run_completed", passed: false, detail: message }], judge: {} };
+          connectionErrors = /^Could not reach /.test(message) ? connectionErrors + 1 : 0;
         }
-        onProgress(results[results.length - 1]);
+        results.push(result);
+        onResult(result, usage);
+        onProgress(result);
+        if (connectionErrors >= MAX_CONSECUTIVE_CONNECTION_ERRORS) {
+          stoppedEarly = result.error;
+          break outer;
+        }
       }
     }
   } finally {
     await server.close();
   }
-  return { results, usage };
+  return { results, usage, stoppedEarly };
+}
+
+// Results in case order, then run order, whatever order they were produced in.
+function orderResults(results, cases) {
+  const position = new Map(cases.map((testCase, index) => [testCase.id, index]));
+  return [...results].sort((a, b) => (position.get(a.id) ?? 1e9) - (position.get(b.id) ?? 1e9) || a.run - b.run);
 }
 
 const HELP = `Usage: npm run eval -- [options]
@@ -97,11 +131,14 @@ Judge model (defaults to the agent's provider and model):
 
 Other:
   --no-server-instructions  do not pass the MCP server's instructions to the agent
+  --no-think                ask reasoning models (e.g. qwen3) to skip their thinking phase: much faster
+  --resume <results.json>   continue an interrupted run; finished cases are kept, failed ones re-run
   --only <id,...>  --category <name>  --limit <n>  --repeat <n>
 
 Examples:
   npm run eval -- --limit 5
-  npm run eval -- --provider ollama --model qwen2.5:7b --judge-provider anthropic
+  npm run eval -- --provider ollama --model qwen3:4b --no-think --judge-provider anthropic
+  npm run eval -- <the interrupted run's options> --resume eval/results/<interrupted-run>.json
   npm run eval -- --provider openrouter --model <vendor/model> --judge-provider anthropic`;
 
 async function main() {
@@ -113,7 +150,7 @@ async function main() {
   let agent;
   let judge;
   try {
-    agent = createProvider({ provider: args.provider, model: args.model, baseUrl: args.baseUrl, apiKeyEnv: args.apiKeyEnv });
+    agent = createProvider({ provider: args.provider, model: args.model, baseUrl: args.baseUrl, apiKeyEnv: args.apiKeyEnv, noThink: args.noThink });
     // The judge inherits every setting it was not given, but only from the agent's
     // own provider: a different judge provider starts from its own preset.
     const agentProvider = args.provider || "anthropic";
@@ -124,7 +161,8 @@ async function main() {
       provider: judgeProvider,
       model: args.judgeModel || (inherit ? args.model : undefined),
       baseUrl: args.judgeBaseUrl || (inherit ? args.baseUrl : undefined),
-      apiKeyEnv: args.judgeApiKeyEnv || (inherit ? args.apiKeyEnv : undefined)
+      apiKeyEnv: args.judgeApiKeyEnv || (inherit ? args.apiKeyEnv : undefined),
+      noThink: args.noThink
     });
   } catch (error) {
     console.error(error.message);
@@ -134,12 +172,71 @@ async function main() {
 
   const { cases: all } = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "cases.json"), "utf8"));
   const cases = selectCases(all, args);
-  const startedAt = new Date().toISOString();
-  console.error(`Running ${cases.length} case(s) × ${args.repeat} with ${agent.name} (judge: ${judge.name})` +
-    `${args.serverInstructions ? "" : ", without server instructions"}`);
+  const serverVersion = require("../../packages/mcp/package.json").version;
+  const outDir = process.env.EVAL_RESULTS_DIR || path.join(__dirname, "..", "results");
+  fs.mkdirSync(outDir, { recursive: true });
 
-  const { results, usage } = await evaluate({
-    agent, judge, cases, repeat: args.repeat, serverInstructions: args.serverInstructions,
+  // A new run, or the continuation of an interrupted one (same file, same settings).
+  let startedAt = new Date().toISOString();
+  let kept = [];
+  let previousUsage = { input_tokens: 0, output_tokens: 0 };
+  let jsonPath = path.join(outDir, `${startedAt.replace(/[:.]/g, "-")}-${agent.name.replace(/[^a-zA-Z0-9.-]+/g, "_")}.json`);
+  if (args.resume) {
+    let previous;
+    try {
+      previous = JSON.parse(fs.readFileSync(args.resume, "utf8"));
+    } catch (error) {
+      console.error(`Cannot read ${args.resume}: ${error.message}`);
+      process.exit(2);
+    }
+    const mismatches = [
+      ["agent", previous.meta.agent, agent.name],
+      ["judge", previous.meta.judge, judge.name],
+      ["server version", previous.meta.serverVersion, serverVersion],
+      ["server instructions", previous.meta.serverInstructions, args.serverInstructions],
+      ["repeat", previous.meta.repeat, args.repeat]
+    ].filter(([, before, now]) => before !== now);
+    if (mismatches.length) {
+      console.error("Cannot resume: the settings differ from the interrupted run, so the results would not be comparable:");
+      for (const [name, before, now] of mismatches) console.error(`  ${name}: was ${before}, now ${now}`);
+      process.exit(2);
+    }
+    jsonPath = path.resolve(args.resume);
+    startedAt = previous.meta.startedAt;
+    previousUsage = previous.meta.usage || previousUsage;
+    kept = previous.results.filter((result) => !result.error);
+    console.error(`Resuming ${path.basename(jsonPath)}: ${kept.length} finished run(s) kept, ` +
+      `${previous.results.length - kept.length} failed run(s) will be retried.`);
+  }
+  const skip = new Set(kept.map((result) => runKey(result.id, result.run)));
+
+  const totalRuns = cases.length * args.repeat;
+  const alreadyDone = cases.reduce((count, testCase) => {
+    for (let run = 1; run <= args.repeat; run += 1) if (skip.has(runKey(testCase.id, run))) count += 1;
+    return count;
+  }, 0);
+  console.error(`Running ${totalRuns - alreadyDone} of ${totalRuns} run(s) with ${agent.name} (judge: ${judge.name})` +
+    `${args.serverInstructions ? "" : ", without server instructions"}${args.noThink ? ", no thinking" : ""}`);
+  console.error(`Progress is saved after every case to ${path.relative(process.cwd(), jsonPath)}`);
+
+  const meta = (status, usage) => ({
+    agent: agent.name, judge: judge.name, serverVersion, serverInstructions: args.serverInstructions,
+    noThink: args.noThink, repeat: args.repeat, startedAt, status,
+    usage: { input_tokens: previousUsage.input_tokens + usage.input_tokens, output_tokens: previousUsage.output_tokens + usage.output_tokens }
+  });
+  const fresh = [];
+  const save = (status, usage) => {
+    const results = orderResults([...kept, ...fresh], cases);
+    fs.writeFileSync(jsonPath, JSON.stringify({ meta: meta(status, usage), results }, null, 2));
+    return results;
+  };
+
+  const { usage, stoppedEarly } = await evaluate({
+    agent, judge, cases, repeat: args.repeat, serverInstructions: args.serverInstructions, skip,
+    onResult: (result, usageSoFar) => {
+      fresh.push(result);
+      save("partial", usageSoFar);
+    },
     onProgress: (result) => {
       const failed = result.deterministic.filter((check) => !check.passed).length +
         Object.values(result.judge || {}).filter((item) => item.verdict === "fail" || item.verdict === "error").length;
@@ -147,16 +244,18 @@ async function main() {
     }
   });
 
-  const serverVersion = require("../../packages/mcp/package.json").version;
-  const meta = { agent: agent.name, judge: judge.name, serverVersion, serverInstructions: args.serverInstructions, repeat: args.repeat, startedAt, usage };
-  const report = buildReport({ results, meta });
-  const outDir = path.join(__dirname, "..", "results");
-  fs.mkdirSync(outDir, { recursive: true });
-  const stamp = `${startedAt.replace(/[:.]/g, "-")}-${agent.name.replace(/[^a-zA-Z0-9.-]+/g, "_")}`;
-  fs.writeFileSync(path.join(outDir, `${stamp}.json`), JSON.stringify({ meta, results }, null, 2));
-  fs.writeFileSync(path.join(outDir, `${stamp}.md`), report.markdown);
+  if (stoppedEarly) {
+    save("partial", usage);
+    console.error(`\nStopped: ${stoppedEarly}`);
+    console.error(`Fix the connection, then continue with:\n  npm run eval -- <same options> --resume ${path.relative(process.cwd(), jsonPath)}`);
+    process.exit(1);
+  }
+  const results = save("complete", usage);
+  const report = buildReport({ results, meta: meta("complete", usage) });
+  const mdPath = jsonPath.replace(/\.json$/, ".md");
+  fs.writeFileSync(mdPath, report.markdown);
   console.log(report.markdown);
-  console.error(`Saved eval/results/${stamp}.md and .json`);
+  console.error(`Saved ${path.relative(process.cwd(), mdPath)} and .json`);
 }
 
 if (require.main === module) {
@@ -166,4 +265,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluate, parseArgs, selectCases, systemPrompt };
+module.exports = { evaluate, parseArgs, selectCases, systemPrompt, orderResults, runKey };

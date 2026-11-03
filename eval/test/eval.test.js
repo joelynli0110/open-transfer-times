@@ -228,7 +228,7 @@ test("OpenAI-compatible provider: object arguments work, malformed arguments bec
   const ollama = createProvider({ provider: "ollama", model: "local", env: {}, fetchImpl: objectArgs.fetchImpl });
   const ok = await evaluate({ agent: ollama, judge: ollama, cases: [durationCase] });
   assert.equal(ok.results[0].transcript.calls[0].isError, false);
-  assert.equal(objectArgs.requests[0].url, "http://localhost:11434/v1/chat/completions");
+  assert.equal(objectArgs.requests[0].url, "http://127.0.0.1:11434/v1/chat/completions");
   assert.equal(objectArgs.requests[0].headers.authorization, undefined, "Ollama needs no key");
 
   const bad = scriptedFetch({ badArguments: true });
@@ -271,8 +271,141 @@ test("comparison report lines up runs on shared cases and flags different judges
 test("CLI argument parsing and case selection", () => {
   const args = parseArgs(["--provider", "ollama", "--model", "qwen", "--judge-provider", "anthropic", "--category", "compare",
     "--limit", "2", "--repeat", "3", "--no-server-instructions"]);
-  assert.deepEqual(args, { repeat: 3, serverInstructions: false, provider: "ollama", model: "qwen", judgeProvider: "anthropic", category: "compare", limit: 2 });
+  assert.deepEqual(args, { repeat: 3, serverInstructions: false, noThink: false, provider: "ollama", model: "qwen", judgeProvider: "anthropic", category: "compare", limit: 2 });
+  assert.deepEqual(parseArgs(["--no-think", "--resume", "eval/results/x.json"]), { repeat: 1, serverInstructions: true, noThink: true, resume: "eval/results/x.json" });
   assert.equal(selectCases(cases, args).length, 2);
   assert.ok(selectCases(cases, args).every((testCase) => testCase.category === "compare"));
   assert.deepEqual(selectCases(cases, { only: ["low-vie-zh"] }).map((testCase) => testCase.id), ["low-vie-zh"]);
+});
+
+// --- robustness: thinking, connection errors, checkpoint and resume ---------
+
+const { stripThinking } = require("../src/providers.js");
+const { orderResults, runKey } = require("../src/run.js");
+const http = require("node:http");
+const os = require("node:os");
+const { spawn } = require("node:child_process");
+
+test("thinking blocks are removed from answers and judge replies", () => {
+  assert.equal(stripThinking("<think>check {a} and {b}</think>\n{\"items\":{}}"), "{\"items\":{}}");
+  assert.equal(stripThinking("unopened reasoning {x}</think>The answer."), "The answer.");
+  assert.equal(stripThinking("Plain answer."), "Plain answer.");
+  assert.equal(stripThinking(null), "");
+});
+
+test("--no-think appends /no_think to system and user prompts; Ollama defaults to 127.0.0.1", async () => {
+  const { fetchImpl, requests } = scriptedFetch();
+  const provider = createProvider({ provider: "ollama", model: "qwen3:4b", env: {}, fetchImpl, noThink: true });
+  await evaluate({ agent: provider, judge: provider, cases: [durationCase] });
+  assert.equal(requests[0].url, "http://127.0.0.1:11434/v1/chat/completions");
+  assert.match(requests[0].body.messages[0].content, /\n\/no_think$/);
+  assert.match(requests[0].body.messages[1].content, /\n\/no_think$/);
+  const judgeRequest = requests.find((request) => !request.body.tools);
+  assert.match(judgeRequest.body.messages[0].content, /\n\/no_think$/);
+});
+
+test("an unreachable endpoint gives an actionable error and stops after three in a row", async () => {
+  const refused = async () => {
+    const error = new TypeError("fetch failed");
+    error.cause = { code: "ECONNREFUSED" };
+    throw error;
+  };
+  const provider = createProvider({ provider: "ollama", model: "m", env: {}, fetchImpl: refused });
+  const saved = [];
+  const { results, stoppedEarly } = await evaluate({ agent: provider, judge: provider, cases: cases.slice(0, 6), onResult: (result) => saved.push(result.id) });
+  assert.equal(results.length, 3, "stopped after three connection errors, not six");
+  assert.deepEqual(saved, cases.slice(0, 3).map((testCase) => testCase.id), "every result was handed over for saving");
+  assert.match(stoppedEarly, /Could not reach http:\/\/127\.0\.0\.1:11434\/v1\/chat\/completions \(ECONNREFUSED\)\. Is the server running\?/);
+});
+
+test("evaluate skips runs that are already done", async () => {
+  const { fetchImpl, requests } = scriptedFetch();
+  const provider = createProvider({ provider: "ollama", model: "m", env: {}, fetchImpl });
+  const pair = [durationCase, cases.find((testCase) => testCase.id === "duration-doh-2h-en")];
+  const { results } = await evaluate({ agent: provider, judge: provider, cases: pair, skip: new Set([runKey(durationCase.id, 1)]) });
+  assert.deepEqual(results.map((result) => result.id), ["duration-doh-2h-en"]);
+  assert.ok(requests.length > 0);
+  assert.deepEqual(orderResults([{ id: "duration-doh-2h-en", run: 1 }, { id: durationCase.id, run: 1 }], pair).map((r) => r.id),
+    [durationCase.id, "duration-doh-2h-en"]);
+});
+
+// A tiny OpenAI-compatible server that can be made to "die" partway through.
+function fakeModelServer({ failAfterRequests = Infinity } = {}) {
+  let count = 0;
+  const server = http.createServer((req, res) => {
+    let raw = "";
+    req.on("data", (chunk) => { raw += chunk; });
+    req.on("end", () => {
+      count += 1;
+      if (count > failAfterRequests) {
+        req.socket.destroy(); // like a machine that stopped answering
+        return;
+      }
+      const body = JSON.parse(raw);
+      const reply = (payload) => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify(payload));
+      };
+      if (!body.tools) return reply({ choices: [{ message: { content: JUDGE_ALL_PASS(body.messages[0].content) } }] });
+      const last = body.messages[body.messages.length - 1];
+      if (last.role === "user") {
+        const via = /Frankfurt|FRA|法兰克福/.test(last.content) ? "FRA" : "DOH";
+        return reply({ choices: [{ finish_reason: "tool_calls", message: { role: "assistant", content: null, tool_calls: [{
+          id: "c1", type: "function", function: { name: "check_connection", arguments: JSON.stringify({ from: "BER", via, to: "PVG", layover_minutes: 60 }) } }] } }] });
+      }
+      return reply({ choices: [{ finish_reason: "stop", message: { role: "assistant", content: "<think>…</think>Answer." } }] });
+    });
+  });
+  return new Promise((resolve) => server.listen(0, "127.0.0.1", () => resolve({ server, port: server.address().port })));
+}
+
+function runCli(args, env) {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(__dirname, "..", "src", "run.js"), ...args], { env: { ...process.env, ...env } });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => { stdout += chunk; });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.on("close", (code) => resolve({ code, stdout, stderr }));
+  });
+}
+
+test("an interrupted run is saved as it goes and can be resumed to completion", async () => {
+  const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-results-"));
+  const ids = ["duration-fra-50-zh", "duration-doh-2h-en", "duration-ams-75-en", "duration-nrt-90-zh", "duration-hkg-60-en"];
+  const common = ["--provider", "ollama", "--model", "m", "--only", ids.join(",")];
+  try {
+    // 1) The model server dies after two cases (each case: 2 agent calls + 1 judge call).
+    const dying = await fakeModelServer({ failAfterRequests: 6 });
+    const first = await runCli([...common, "--base-url", `http://127.0.0.1:${dying.port}/v1`], { EVAL_RESULTS_DIR: resultsDir });
+    dying.server.close();
+    assert.equal(first.code, 1, first.stderr);
+    assert.match(first.stderr, /Stopped: Could not reach/);
+    const [file] = fs.readdirSync(resultsDir).filter((name) => name.endsWith(".json"));
+    const partial = JSON.parse(fs.readFileSync(path.join(resultsDir, file), "utf8"));
+    assert.equal(partial.meta.status, "partial");
+    assert.equal(partial.results.filter((result) => !result.error).length, 2, "the two finished cases were saved before the failure");
+
+    // 2) Resuming with different settings is refused.
+    const healthy = await fakeModelServer();
+    const url = `http://127.0.0.1:${healthy.port}/v1`;
+    const wrong = await runCli([...common, "--base-url", url, "--no-server-instructions", "--resume", path.join(resultsDir, file)], { EVAL_RESULTS_DIR: resultsDir });
+    assert.equal(wrong.code, 2);
+    assert.match(wrong.stderr, /Cannot resume: .*\n.*server instructions: was true, now false/);
+
+    // 3) Resuming with the same settings keeps the two finished cases and runs the rest.
+    const resumed = await runCli([...common, "--base-url", url, "--resume", path.join(resultsDir, file)], { EVAL_RESULTS_DIR: resultsDir });
+    healthy.server.close();
+    assert.equal(resumed.code, 0, resumed.stderr);
+    assert.match(resumed.stderr, /Resuming .*: 2 finished run\(s\) kept, 3 failed run\(s\) will be retried\./);
+    assert.match(resumed.stderr, /Running 3 of 5 run\(s\)/);
+    const complete = JSON.parse(fs.readFileSync(path.join(resultsDir, file), "utf8"));
+    assert.equal(complete.meta.status, "complete");
+    assert.deepEqual(complete.results.map((result) => result.id), ids, "all cases, in case order, no duplicates");
+    assert.ok(complete.results.every((result) => !result.error));
+    assert.equal(complete.results[0].transcript.answer, "Answer.", "thinking stripped from the answer");
+    assert.ok(fs.existsSync(path.join(resultsDir, file.replace(/\.json$/, ".md"))));
+  } finally {
+    fs.rmSync(resultsDir, { recursive: true, force: true });
+  }
 });

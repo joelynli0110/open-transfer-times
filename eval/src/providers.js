@@ -19,9 +19,16 @@ const PRESETS = {
   anthropic: { kind: "anthropic", apiKeyEnv: "ANTHROPIC_API_KEY", defaultModel: "claude-sonnet-5-5" },
   openai: { kind: "openai-compatible", baseUrl: "https://api.openai.com/v1", apiKeyEnv: "OPENAI_API_KEY" },
   openrouter: { kind: "openai-compatible", baseUrl: "https://openrouter.ai/api/v1", apiKeyEnv: "OPENROUTER_API_KEY" },
-  ollama: { kind: "openai-compatible", baseUrl: "http://localhost:11434/v1", apiKeyEnv: null },
+  // 127.0.0.1, not localhost: Node may resolve localhost to IPv6 (::1) while Ollama listens on IPv4.
+  ollama: { kind: "openai-compatible", baseUrl: "http://127.0.0.1:11434/v1", apiKeyEnv: null },
   compatible: { kind: "openai-compatible", baseUrl: null, apiKeyEnv: "OPENAI_API_KEY" }
 };
+
+// Reasoning models (e.g. qwen3) may put their thinking in the content as
+// <think>…</think>. It is neither the answer nor valid judge output.
+function stripThinking(text) {
+  return String(text || "").replace(/<think>[\s\S]*?<\/think>/g, "").replace(/^[\s\S]*?<\/think>/, "").trim();
+}
 
 function textOf(content) {
   return (content || []).filter((block) => block.type === "text").map((block) => block.text).join("\n").trim();
@@ -90,16 +97,27 @@ function parseArguments(raw) {
   }
 }
 
-function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = globalThis.fetch, headers = {} }) {
+// noThink appends Qwen3's documented "/no_think" switch to the system and user
+// prompts, so the model answers without a long reasoning phase.
+function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = globalThis.fetch, headers = {}, noThink = false }) {
   if (!baseUrl) throw new Error("An OpenAI-compatible provider needs a base URL (--base-url).");
   const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
 
+  const think = (text) => (noThink ? `${text}\n/no_think` : text);
+
   async function chat(body) {
-    const response = await fetchImpl(endpoint, {
-      method: "POST",
-      headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}), ...headers },
-      body: JSON.stringify({ model, ...body })
-    });
+    let response;
+    try {
+      response = await fetchImpl(endpoint, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}), ...headers },
+        body: JSON.stringify({ model, ...body })
+      });
+    } catch (error) {
+      const code = error.cause?.code || error.code || error.message;
+      throw new Error(`Could not reach ${endpoint} (${code}). Is the server running? For Ollama, check that ` +
+        `"ollama list" works, or pass --base-url.`);
+    }
     const text = await response.text();
     if (!response.ok) throw new Error(`${label || baseUrl} returned ${response.status}: ${text.slice(0, 300)}`);
     return JSON.parse(text);
@@ -110,7 +128,7 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
     model,
     async runAgent({ server, prompt, system = DEFAULT_SYSTEM, maxTurns = 8 }) {
       const tools = server.tools.map(toFunctionTool);
-      const messages = [{ role: "system", content: system }, { role: "user", content: prompt }];
+      const messages = [{ role: "system", content: think(system) }, { role: "user", content: think(prompt) }];
       const calls = [];
       const usage = { input_tokens: 0, output_tokens: 0 };
       for (let turn = 0; turn < maxTurns; turn += 1) {
@@ -122,7 +140,7 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
         const toolCalls = message.tool_calls || [];
         messages.push({ role: "assistant", content: message.content ?? null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) });
         if (!toolCalls.length) {
-          return { answer: String(message.content || "").trim(), calls, turns: turn + 1, stopReason: choice?.finish_reason || "stop", usage };
+          return { answer: stripThinking(message.content), calls, turns: turn + 1, stopReason: choice?.finish_reason || "stop", usage };
         }
         for (const toolCall of toolCalls) {
           const { args, error } = parseArguments(toolCall.function?.arguments);
@@ -136,8 +154,8 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
       return { answer: "", calls, turns: maxTurns, stopReason: "max_turns", usage };
     },
     async complete(prompt) {
-      const data = await chat({ messages: [{ role: "user", content: prompt }] });
-      return String(data.choices?.[0]?.message?.content || "");
+      const data = await chat({ messages: [{ role: "user", content: think(prompt) }] });
+      return stripThinking(data.choices?.[0]?.message?.content);
     }
   };
 }
@@ -146,7 +164,7 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
  * Builds a provider from CLI-style options.
  * @param {{ provider?: string, model?: string, baseUrl?: string, apiKeyEnv?: string }} options
  */
-function createProvider({ provider = "anthropic", model, baseUrl, apiKeyEnv, env = process.env, fetchImpl, anthropicClient } = {}) {
+function createProvider({ provider = "anthropic", model, baseUrl, apiKeyEnv, env = process.env, fetchImpl, anthropicClient, noThink = false } = {}) {
   const preset = PRESETS[provider];
   if (!preset) throw new Error(`Unknown provider "${provider}". Use one of: ${Object.keys(PRESETS).join(", ")}.`);
   const chosenModel = model || preset.defaultModel;
@@ -159,7 +177,7 @@ function createProvider({ provider = "anthropic", model, baseUrl, apiKeyEnv, env
     const client = anthropicClient || new (require("@anthropic-ai/sdk").default)({ apiKey });
     return anthropicProvider({ client, model: chosenModel });
   }
-  return openAICompatibleProvider({ baseUrl: baseUrl || preset.baseUrl, apiKey, model: chosenModel, label: provider, fetchImpl });
+  return openAICompatibleProvider({ baseUrl: baseUrl || preset.baseUrl, apiKey, model: chosenModel, label: provider, fetchImpl, noThink });
 }
 
-module.exports = { createProvider, anthropicProvider, openAICompatibleProvider, PRESETS, DEFAULT_SYSTEM, toFunctionTool };
+module.exports = { createProvider, anthropicProvider, openAICompatibleProvider, PRESETS, DEFAULT_SYSTEM, toFunctionTool, stripThinking };
