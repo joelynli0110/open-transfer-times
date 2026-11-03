@@ -100,8 +100,8 @@ questions missing information, and airport-data questions.
 | Check | Fails when |
 | --- | --- |
 | `tool_called` | The agent answers without using a tool. |
-| `expected_call` | No call has the expected airport, ticket, layover, etc. |
-| `compare_used` | A comparison question is not sent to `compare_connections` with every option. |
+| `expected_call` | No call has the expected airport, ticket, layover, etc. (`check_connection` and `compare_connections` both count; an expected value may list alternatives, such as PVG or SHA for Shanghai). |
+| `compare_used` | A comparison question is not sent to `compare_connections` with every option. This is the only check that fails when each option is checked separately. |
 | `no_arrival_time`, `no_departure_time` | The user gave only a duration and the agent invented clock times. |
 | `no_tool_call` | The question lacks key information and the agent called a tool anyway. |
 | `tool_calls_succeeded` | A call was rejected (wrong arguments). |

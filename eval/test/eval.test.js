@@ -34,7 +34,8 @@ test("every expected call is accepted by the real MCP server", async () => {
     for (const testCase of cases) {
       for (const expected of testCase.expect.calls || []) {
         const tool = expected.tool || "check_connection";
-        const leg = { ...expected.leg };
+        // Alternatives (e.g. PVG or SHA): each must be a valid argument; try the first.
+        const leg = Object.fromEntries(Object.entries(expected.leg).map(([key, value]) => [key, Array.isArray(value) ? value[0] : value]));
         if (leg.arrival_time === "*present*") Object.assign(leg, { arrival_time: "2026-09-20T10:00", departure_time: "2026-09-20T11:30" });
         // Expectations may leave the layover open (e.g. they only pin the airport); fill one in.
         if (tool !== "get_airport_profile" && tool !== "list_airports" && leg.layover_minutes === undefined && leg.arrival_time === undefined) {
@@ -408,4 +409,22 @@ test("an interrupted run is saved as it goes and can be resumed to completion", 
   } finally {
     fs.rmSync(resultsDir, { recursive: true, force: true });
   }
+});
+
+test("a comparison done with separate check_connection calls fails only compare_used", () => {
+  const testCase = cases.find((c) => c.id === "compare-three-durations-zh");
+  const calls = [["FRA", 50], ["IST", 180], ["DOH", 120]].map(([via, minutes]) =>
+    ({ name: "check_connection", args: { from: "BER", via, to: "PVG", layover_minutes: minutes }, isError: false, result: {} }));
+  const failed = deterministicChecks(testCase, { answer: "x", stopReason: "end_turn", calls })
+    .filter((check) => !check.passed).map((check) => check.id);
+  assert.deepEqual(failed, ["compare_used"]);
+});
+
+test("an expected value may list alternatives (Shanghai: PVG or SHA)", () => {
+  const testCase = cases.find((c) => c.id === "times-fra-schengen-zh");
+  for (const to of ["PVG", "SHA"]) {
+    const calls = [{ name: "check_connection", args: { from: "BER", via: "FRA", to, arrival_time: "09:40", departure_time: "10:35" }, isError: false, result: {} }];
+    assert.ok(deterministicChecks(testCase, { answer: "x", stopReason: "end_turn", calls }).every((check) => check.passed));
+  }
+  assert.ok(!legMatches({ to: ["PVG", "SHA"] }, { to: "HND" }));
 });

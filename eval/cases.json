@@ -5,7 +5,7 @@
       "id": "times-ist-protected-zh",
       "category": "times",
       "prompt": "柏林飞上海，在伊斯坦布尔转机，10:00 到，11:15 起飞，同一张票，时间够吗？",
-      "expect": { "calls": [{ "leg": { "from": "BER", "via": "IST", "to": "PVG", "ticket": "protected" } }] }
+      "expect": { "calls": [{ "leg": { "from": "BER", "via": "IST", "to": ["PVG", "SHA"], "ticket": "protected" } }] }
     },
     {
       "id": "times-ist-protected-en",
@@ -23,7 +23,7 @@
       "id": "times-fra-schengen-zh",
       "category": "times",
       "prompt": "柏林经法兰克福飞上海，法兰克福 9:40 落地，10:35 起飞，联程票。来得及吗？",
-      "expect": { "calls": [{ "leg": { "from": "BER", "via": "FRA", "to": "PVG" } }] }
+      "expect": { "calls": [{ "leg": { "from": "BER", "via": "FRA", "to": ["PVG", "SHA"] } }] }
     },
     {
       "id": "times-overnight-en",

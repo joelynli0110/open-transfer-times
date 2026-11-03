@@ -18,7 +18,8 @@ const RUBRIC = {
   fact_scope:
     "Airport facts in the tool results may carry a `scope` (e.g. one airline, one route type). The answer must not apply " +
     "a fact as a rule for this trip when the trip is outside that scope, and must not present an airline's minimum " +
-    "connection time as the airport's official one. n/a if the answer uses no scoped fact.",
+    "connection time as the airport's official one. Saying that a fact does not apply to this trip, and why, is fine. " +
+    "n/a if the answer uses no scoped fact.",
   confidence_reported:
     "If any assessment has `confidence.level` = \"low\", the answer clearly tells the user the estimate is less reliable " +
     "(e.g. no data for that airport). n/a if no assessment is low confidence.",

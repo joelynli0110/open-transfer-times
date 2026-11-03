@@ -14,6 +14,10 @@
 - Ollama defaults to `http://127.0.0.1:11434/v1` (Node can resolve `localhost`
   to IPv6, which Ollama does not listen on); connection failures name the
   endpoint and the cause.
+- Fairer eval checks: a comparison checked option by option now fails only
+  `compare_used`, not every `expected_call` as well; expected values may list
+  alternatives (Shanghai is PVG or SHA); the `fact_scope` judge accepts an answer
+  that explains why a scoped fact does not apply to the trip.
 
 ## 0.1.2 (open-transfer-times-mcp only)
 

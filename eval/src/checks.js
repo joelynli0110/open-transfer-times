@@ -12,7 +12,17 @@ function legsOf(call) {
   return [call.args || {}];
 }
 
+// Tools that assess connections: a leg checked by either counts as checked.
+// Whether a comparison used compare_connections is its own check (compare_used).
+const CONNECTION_TOOLS = new Set(["check_connection", "compare_connections"]);
+
+function sameTool(expected, actual) {
+  if (!expected) return true;
+  return expected === actual || (CONNECTION_TOOLS.has(expected) && CONNECTION_TOOLS.has(actual));
+}
+
 function sameValue(expected, actual) {
+  if (Array.isArray(expected)) return expected.some((option) => sameValue(option, actual));
   if (expected === "*present*") return actual !== undefined && actual !== null && actual !== "";
   if (expected === "*absent*") return actual === undefined || actual === null;
   if (typeof expected === "string" && typeof actual === "string") return expected.toUpperCase() === actual.trim().toUpperCase();
@@ -44,7 +54,7 @@ function deterministicChecks(testCase, transcript) {
   add("tool_called", calls.length > 0, calls.length ? `${calls.length} call(s)` : "the agent answered without using a tool");
 
   for (const [index, expected] of (expect.calls || []).entries()) {
-    const candidates = calls.filter((call) => !expected.tool || call.name === expected.tool);
+    const candidates = calls.filter((call) => sameTool(expected.tool, call.name));
     const hit = candidates.some((call) => legsOf(call).some((leg) => legMatches(expected.leg, leg)));
     const want = `${expected.tool || "any tool"} with ${JSON.stringify(expected.leg)}`;
     add(`expected_call_${index + 1}`, hit, hit ? want : `missing: ${want}; got ${JSON.stringify(calls.map((call) => ({ name: call.name, args: call.args })))}`);
@@ -73,4 +83,4 @@ function deterministicChecks(testCase, transcript) {
   return results;
 }
 
-module.exports = { deterministicChecks, legsOf, legMatches };
+module.exports = { sameTool, deterministicChecks, legsOf, legMatches };
