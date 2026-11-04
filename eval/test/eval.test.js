@@ -180,7 +180,7 @@ test("Anthropic provider: agent loop against the real server, graded", async () 
   const { results, usage } = await evaluate({ agent: provider, judge: provider, cases: [durationCase] });
   const [result] = results;
   assert.equal(result.transcript.calls[0].result.quality, "risky");
-  assert.match(result.transcript.answer, /BER–FRA–PVG: RISKY/);
+  assert.match(result.transcript.answer, /BER–FRA–PVG: AVOID/);
   assert.ok(result.deterministic.every((check) => check.passed), JSON.stringify(result.deterministic));
   assert.ok(Object.values(result.judge).every((item) => item.verdict === "pass"));
   assert.deepEqual(usage, { input_tokens: 30, output_tokens: 13 });
@@ -222,7 +222,7 @@ test("OpenAI-compatible provider: function tools, tool messages, real server", a
   // the tool result goes back as a "tool" message tied to the call id
   const toolMessage = second.body.messages.find((message) => message.role === "tool");
   assert.equal(toolMessage.tool_call_id, "call_1");
-  assert.match(toolMessage.content, /^BER–FRA–PVG: RISKY/);
+  assert.match(toolMessage.content, /^BER–FRA–PVG: AVOID/);
 });
 
 test("OpenAI-compatible provider: object arguments work, malformed arguments become a failed call", async () => {

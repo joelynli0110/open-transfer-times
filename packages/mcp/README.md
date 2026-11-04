@@ -40,14 +40,15 @@ Give either both times or `layover_minutes`. If both are given they must agree.
 Example result text:
 
 ```text
-BER–LHR–PVG: REASONABLE — A practical connection on one ticket.
-Decision: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
+BER–LHR–PVG: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
+Rating: REASONABLE — A practical connection on one ticket.
 Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 35 min.
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
 Factors: Transfer through London Heathrow; Additional security screening may apply; Moderate transfer margin.
 Ticket: Protected itinerary.
 Data: London Heathrow profile (partial, 3 cited facts).
+Comparing several options? Send them together to compare_connections, which ranks them.
 Airport facts are context, not extra steps. Apply a fact only where its scope matches this trip:
 - All connecting passengers go through security screening again at Heathrow.
 - ...
@@ -56,11 +57,15 @@ Airport facts are context, not extra steps. Apply a fact only where its scope ma
 On separate tickets with bags not stated, where a re-check would matter:
 
 ```text
-BER–IST–PVG: COMFORTABLE — Transfer time looks workable, but separate tickets leave you exposed to disruption.
-Decision: INSUFFICIENT DATA — Key information is missing, so the rating cannot be relied on.
+BER–IST–PVG: INSUFFICIENT DATA — Key information is missing, so the rating cannot be relied on.
+Rating: COMFORTABLE — Transfer time looks workable, but separate tickets leave you exposed to disruption. (not a recommendation: see the decision)
 Confidence: LOW — Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky. With a bag re-check the margin would be 10 min (tight). ...
 ```
 
+- The text leads with the decision, and `compare_connections` explains each
+  option that is not recommended ("Why: …"). In the agent evaluation, agents
+  repeated the first rating they read, so "comfortable" led them to call a
+  connection with missing data fine.
 - `decision` is the field to act on. `insufficient_data` means key information
   is missing (the confidence reasons say what): ask the user rather than
   recommending the connection.

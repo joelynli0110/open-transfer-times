@@ -59,7 +59,8 @@ test("check_connection matches the core engine and cites airport facts", async (
     const security = data.steps.find((step) => step.code === "SECURITY_RESCREENING");
     assert.deepEqual(security.supporting_facts, ["transfer-security"]);
     assert.equal(data.connection_airport.allowances, undefined, "assessments list counted steps, not every allowance");
-    assert.match(result.content[0].text, /BER–LHR–PVG: REASONABLE/);
+    assert.match(result.content[0].text, /^BER–LHR–PVG: RECOMMEND — .*\nRating: REASONABLE — /);
+    assert.match(result.content[0].text, /\nComparing several options\? Send them together to compare_connections/);
   } finally {
     await close();
   }
@@ -289,7 +290,8 @@ test("low confidence is stated up front in the summary", async () => {
     assert.equal(result.structuredContent.quality, "comfortable");
     assert.equal(result.structuredContent.confidence.level, "low");
     const lines = result.content[0].text.split("\n");
-    assert.match(lines[1], /^Decision: INSUFFICIENT DATA — Key information is missing/);
+    assert.match(lines[0], /^ZZZ–XXX–YYY: INSUFFICIENT DATA — Key information is missing/);
+    assert.match(lines[1], /^Rating: COMFORTABLE — .*\(not a recommendation: see the decision\)$/);
     const confidenceLine = lines[2];
     assert.match(confidenceLine, /^Confidence: LOW — No transfer profile for this airport.*Treat the rating as a rough indication only\.$/);
   } finally {
@@ -336,7 +338,7 @@ test("check_connection reports the decision and the real layover across a clock 
     assert.equal(data.layover_basis, "timezone");
     assert.equal(data.decision.value, "caution");
     assert.match(result.content[0].text, /Layover 60 min \(clocks change: local clocks show 120 min\)/);
-    assert.match(result.content[0].text, /^BER–FRA–PVG: TIGHT — .*\nDecision: CAUTION — Little time is left/);
+    assert.match(result.content[0].text, /^BER–FRA–PVG: CAUTION — Little time is left.*\nRating: TIGHT — /);
   } finally {
     await close();
   }
@@ -399,7 +401,10 @@ test("compare_connections ranks by decision: missing data never outranks a usabl
     const ranked = result.structuredContent.ranked;
     assert.deepEqual(ranked.map((entry) => [entry.id, entry.assessment.decision.value]),
       [["MUC 80m", "recommend"], ["VIE 4h no data", "insufficient_data"], ["FRA 45m", "avoid"]]);
-    assert.match(result.content[0].text, /^1\. MUC 80m BER–MUC–JFK: recommend, reasonable, margin 30 min/);
+    assert.match(result.content[0].text, /^1\. MUC 80m BER–MUC–JFK: RECOMMEND — rated reasonable, margin 30 min/);
+    // Options that are not recommended say why, so "comfortable" is not read as "fine".
+    assert.match(result.content[0].text, /\n2\. VIE 4h no data BER–VIE–JFK: INSUFFICIENT DATA — rated comfortable.*\n   Why: Key information is missing.*No transfer profile/);
+    assert.match(result.content[0].text, /\nOnly RECOMMEND and CAUTION options may be presented as workable; for the others, say why\.$/);
   } finally {
     await close();
   }

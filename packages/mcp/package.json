@@ -1,6 +1,6 @@
 {
   "name": "open-transfer-times-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "mcpName": "io.github.joelynli0110/open-transfer-times",
   "description": "MCP server that lets AI agents check whether a flight connection is comfortable, tight or risky, with cited airport facts.",
   "bin": {

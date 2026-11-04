@@ -267,8 +267,9 @@ function summarize(assessment) {
     ? `${airport.name} profile (${airport.coverage}, ${airport.facts.length} cited fact${airport.facts.length === 1 ? "" : "s"})`
     : "standard baseline (no airport-specific profile)";
   return [
-    `${assessment.route}: ${assessment.quality.toUpperCase()} — ${assessment.verdict}`,
-    `Decision: ${assessment.decision.value.toUpperCase().replace("_", " ")} — ${assessment.decision.reasons.map((reason) => reason.explanation).join(" ")}`,
+    // The decision leads: agents tend to repeat the first rating they read.
+    `${assessment.route}: ${decisionLabel(assessment)} — ${assessment.decision.reasons.map((reason) => reason.explanation).join(" ")}`,
+    `Rating: ${assessment.quality.toUpperCase()} — ${assessment.verdict}${RELIABLE[assessment.decision.value] ? "" : " (not a recommendation: see the decision)"}`,
     `Confidence: ${assessment.confidence.level.toUpperCase()}${assessment.confidence.level === "low"
       ? ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")} Treat the rating as a rough indication only.`
       : ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")}`}`,
@@ -281,12 +282,28 @@ function summarize(assessment) {
       ? [`Bags: not stated. If they must be collected and checked in again, the margin is ${assessment.if_baggage_recheck.buffer_minutes} min (${assessment.if_baggage_recheck.quality}). Ask the user.`]
       : []),
     `Data: ${dataNote}.`,
+    "Comparing several options? Send them together to compare_connections, which ranks them.",
     ...(assessment.connection_airport.facts.length
       ? ["Airport facts are context, not extra steps. Apply a fact only where its scope matches this trip:",
         // The scope leads, so a reader cannot miss that the fact is conditional.
         ...assessment.connection_airport.facts.map((fact) => `- ${fact.scope ? `(Only for: ${fact.scope}) ` : ""}${fact.claim}`)]
       : [])
   ].join("\n");
+}
+
+// Decisions under which the connection may be presented as fine.
+const RELIABLE = { recommend: true, caution: true, insufficient_data: false, avoid: false };
+
+function decisionLabel(assessment) {
+  return assessment.decision.value.toUpperCase().replace("_", " ");
+}
+
+// Why an option is not recommended, for the compare_connections text.
+function concerns(assessment) {
+  if (assessment.decision.value === "recommend") return "";
+  const reasons = assessment.decision.reasons.map((reason) => reason.explanation);
+  if (assessment.confidence.level === "low") reasons.push(...assessment.confidence.reasons.map((reason) => reason.explanation));
+  return `\n   Why: ${reasons.join(" ")}`;
 }
 
 function errorResult(error) {
@@ -385,9 +402,9 @@ function createServer() {
     const text = ranked.map((entry) => {
       const label = entry.id ? `${entry.id} ` : "";
       return entry.assessment
-        ? `${entry.rank}. ${label}${entry.assessment.route}: ${entry.assessment.decision.value.replace("_", " ")}, ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence`
+        ? `${entry.rank}. ${label}${entry.assessment.route}: ${decisionLabel(entry.assessment)} — rated ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence${concerns(entry.assessment)}`
         : `${entry.rank}. ${label}could not be assessed: ${entry.error}`;
-    }).join("\n");
+    }).join("\n") + "\nOnly RECOMMEND and CAUTION options may be presented as workable; for the others, say why.";
     return { content: [{ type: "text", text }], structuredContent: { ranked, disclaimer: DISCLAIMER } };
   });
 

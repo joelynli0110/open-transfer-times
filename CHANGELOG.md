@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.1 (open-transfer-times-mcp only)
+
+Result text changes from the 0.2.0 agent evaluation, where agents called
+connections with missing data fine (decision respected in 60% of runs) and
+never used `compare_connections`. Structured results are unchanged; the
+`open-transfer-times` library stays at 0.2.0.
+
+- The text result leads with the decision (`BER–VIE–JFK: INSUFFICIENT DATA — …`)
+  and shows the rating on a second line, marked "not a recommendation" when the
+  decision is `insufficient_data` or `avoid`.
+- `compare_connections` gives each option's decision first, explains every
+  option that is not recommended ("Why: …"), and ends with a line on which
+  options may be presented as workable.
+- `check_connection` results end with a pointer to `compare_connections` for
+  comparisons.
+
 ## 0.2.0
 
 Addresses the second external review: correct layovers across clock changes,

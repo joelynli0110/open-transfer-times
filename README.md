@@ -13,9 +13,12 @@ agents can check connections before recommending a flight.
 Ask an AI agent to compare layovers. With the MCP server connected, it gets:
 
 ```text
-1. IST 3 h BER–IST–PVG: recommend, comfortable, margin 135 min, protected itinerary, medium confidence
-2. VIE 2 h BER–VIE–PVG: insufficient data, comfortable, margin 65 min, protected itinerary, low confidence
-3. FRA 50 min BER–FRA–PVG: avoid, risky, margin -5 min, protected itinerary, medium confidence
+1. IST 3 h BER–IST–PVG: RECOMMEND — rated comfortable, margin 135 min, protected itinerary, medium confidence
+2. VIE 2 h BER–VIE–PVG: INSUFFICIENT DATA — rated comfortable, margin 65 min, protected itinerary, low confidence
+   Why: Key information is missing, so the rating cannot be relied on. No transfer profile for this airport; generic baseline allowances were used.
+3. FRA 50 min BER–FRA–PVG: AVOID — rated risky, margin -5 min, protected itinerary, medium confidence
+   Why: The transfer steps take about as long as the layover or longer.
+Only RECOMMEND and CAUTION options may be presented as workable; for the others, say why.
 ```
 
 Vienna has plenty of time but no airport data, so it is not recommended. Each
@@ -23,8 +26,8 @@ result gives a decision, the transfer steps it counted, a confidence level, and
 the official sources behind the airport data:
 
 ```text
-BER–LHR–PVG: REASONABLE — A practical connection on one ticket.
-Decision: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
+BER–LHR–PVG: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
+Rating: REASONABLE — A practical connection on one ticket.
 Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 35 min.
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
