@@ -15,6 +15,9 @@ never used `compare_connections`. Structured results are unchanged; the
   options may be presented as workable.
 - `check_connection` results end with a pointer to `compare_connections` for
   comparisons.
+- Tool descriptions say when to use each tool and name the alternative
+  (`check_connection` ↔ `compare_connections`, `get_airport_profile` ↔
+  `list_airports`), and that assessments are deterministic and offline.
 
 ## 0.2.0
 

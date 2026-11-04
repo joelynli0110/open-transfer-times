@@ -337,13 +337,14 @@ function createServer() {
   server.registerTool("check_connection", {
     title: "Check a flight connection",
     description:
-      "Assess whether a one-stop flight connection leaves enough time to transfer. Deducts the transfer steps that apply at " +
-      "the connection airport (walking, Schengen passport control, terminal change, security re-screening, baggage re-check) " +
-      "from the scheduled layover and returns comfortable / reasonable / tight / risky, the reasons, ticket-protection " +
-      "exposure, and the cited airport facts behind the estimate. Give the scheduled arrival and departure as local wall-clock " +
-      "times at the connection airport, or only layover_minutes when that is all the user said. Explain the result using " +
-      "the returned steps; airport facts are context and only apply where their scope matches the trip. To compare two " +
-      "or more options, call compare_connections once instead of this tool for each.",
+      "Assess one one-stop flight connection: does the layover leave enough time to transfer? Use it for a single " +
+      "itinerary; to compare two or more options, use compare_connections once instead of calling this tool for each. " +
+      "Deducts the transfer steps that apply at the connection airport (walking, Schengen passport control, terminal " +
+      "change, security re-screening, baggage re-check) from the layover and returns a decision (recommend / caution / " +
+      "insufficient_data / avoid), a rating (comfortable / reasonable / tight / risky), confidence with reasons, ticket " +
+      "exposure and cited airport facts. Give arrival and departure as local times at the connection airport, or only " +
+      "layover_minutes when that is all the user said. Deterministic and offline: no flight data, no delay prediction. " +
+      "Explain only the returned steps; airport facts apply only where their scope matches the trip.",
     inputSchema: connectionFields,
     outputSchema: assessmentOutput.shape,
     annotations: { title: "Check a flight connection", ...READ_ONLY }
@@ -359,10 +360,12 @@ function createServer() {
   server.registerTool("compare_connections", {
     title: "Compare and rank flight connections",
     description:
-      "Assess several one-stop itineraries (for example the results of a flight search) and rank them from safest to " +
-      "riskiest connection: by decision (recommend, caution, insufficient data, avoid), then transfer quality, then ticket " +
-      "protection (one ticket before unknown before self-transfer), then confidence, then remaining margin. Each option takes times or layover_minutes, like check_connection. Use the optional id to map " +
-      "results back to your own options (e.g. an offer id or price).",
+      "Compare and rank 2–20 one-stop itineraries (for example flight search results, or options the user lists) from " +
+      "safest to riskiest connection. Use it whenever the user weighs options; for a single itinerary use check_connection. " +
+      "Ranks by decision (recommend, caution, insufficient data, avoid), then transfer quality, then ticket protection " +
+      "(one ticket before unknown before self-transfer), then confidence, then remaining margin, and says why each option " +
+      "that is not recommended is not. Each option takes times or layover_minutes, like check_connection; the optional " +
+      "id maps results back to your own options (e.g. an offer id or price).",
     inputSchema: {
       options: z.array(connectionInput.extend({ id: z.string().optional().describe("Your identifier for this option") }))
         .min(2).max(20).describe("Two to twenty itineraries to compare")
@@ -411,8 +414,10 @@ function createServer() {
   server.registerTool("get_airport_profile", {
     title: "Get an airport's transfer profile",
     description:
-      "Return the transfer allowances used for an airport, whether each is a heuristic estimate or sourced, and the cited " +
-      "facts (with official source links) about transferring there. Airports without a profile use the standard baseline.",
+      "Return one airport's transfer allowances, whether each is a heuristic estimate or sourced, and the cited facts " +
+      "(with official source links) about transferring there. Use it to answer questions about an airport itself or to " +
+      "show sources; to judge a specific connection use check_connection, and to see which airports have a profile use " +
+      "list_airports. Airports without a profile return the standard baseline.",
     inputSchema: { airport: iata.describe("IATA airport code, e.g. LHR") },
     outputSchema: airportDataOutput.shape,
     annotations: { title: "Get an airport's transfer profile", ...READ_ONLY }
@@ -428,7 +433,10 @@ function createServer() {
 
   server.registerTool("list_airports", {
     title: "List airports with transfer profiles",
-    description: "List the airports that have their own transfer profile, with how well each is sourced.",
+    description:
+      "List the airports that have their own transfer profile, with how well each is sourced. Use it to tell the user " +
+      "where results are better supported; for one airport's allowances and sources use get_airport_profile. Every other " +
+      "airport is still accepted by the assessment tools, with the standard baseline and low confidence.",
     inputSchema: {},
     outputSchema: {
       airports: z.array(z.object({ iata: z.string(), name: z.string(), coverage: z.string(), facts: z.number() }))
