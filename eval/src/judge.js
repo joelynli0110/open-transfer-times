@@ -28,7 +28,9 @@ const RUBRIC = {
     "not protected. n/a otherwise.",
   decision_respected:
     "If an assessment's `decision` is \"insufficient_data\" or \"avoid\", the answer does not present that connection as " +
-    "safe, fine or recommended. n/a if no assessment has those decisions.",
+    "safe, fine or recommended. An answer that gives the outcome for each value of the missing detail (for example " +
+    "with and without a bag re-check) and asks the user for it respects the decision. n/a if no assessment has those " +
+    "decisions.",
   asks_about_baggage:
     "If an assessment shows `if_baggage_recheck` (separate tickets, bags not stated), the answer asks the user whether " +
     "checked bags must be collected and re-checked, or explains that this changes the result. n/a otherwise.",

@@ -57,15 +57,19 @@ Airport facts are context, not extra steps. Apply a fact only where its scope ma
 On separate tickets with bags not stated, where a re-check would matter:
 
 ```text
-BER–IST–PVG: INSUFFICIENT DATA — Key information is missing, so the rating cannot be relied on.
-Rating: COMFORTABLE — Transfer time looks workable, but separate tickets leave you exposed to disruption. (not a recommendation: see the decision)
-Confidence: LOW — Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky. With a bag re-check the margin would be 10 min (tight). ...
+BER–IST–PVG: INSUFFICIENT DATA — Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky. With a bag re-check the margin would be -15 min (risky). The result cannot be relied on.
+Do not call this connection safe, fine or comfortable. Tell the user the estimate is unreliable, why, and what would settle it.
+Confidence: LOW, for the reasons above.
+Rough estimate only: layover 75 min, transfer steps 45 min, margin 30 min.
+...
+Bags: not stated. If they must be collected and checked in again, the margin is -15 min (risky). Ask the user.
 ```
 
 - The text leads with the decision, and `compare_connections` explains each
-  option that is not recommended ("Why: …"). In the agent evaluation, agents
-  repeated the first rating they read, so "comfortable" led them to call a
-  connection with missing data fine.
+  option that is not recommended ("Why: …"). With `insufficient_data` the text
+  leaves out the rating entirely: in the agent evaluation, agents repeated
+  "comfortable" and "healthy margin" as reassurance even when the decision said
+  the rating could not be relied on. The rating stays in `structuredContent`.
 - `decision` is the field to act on. `insufficient_data` means key information
   is missing (the confidence reasons say what): ask the user rather than
   recommending the connection.

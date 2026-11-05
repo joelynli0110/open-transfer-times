@@ -266,17 +266,26 @@ function summarize(assessment) {
   const dataNote = airport.has_profile
     ? `${airport.name} profile (${airport.coverage}, ${airport.facts.length} cited fact${airport.facts.length === 1 ? "" : "s"})`
     : "standard baseline (no airport-specific profile)";
+  // With insufficient data the rating ("comfortable", "healthy margin") is left out of the text: in the agent
+  // evaluation, agents repeated it as reassurance even when the decision said it could not be relied on.
+  const insufficient = assessment.decision.value === "insufficient_data";
+  const confidenceReasons = assessment.confidence.reasons.map((reason) => reason.explanation).join(" ");
   return [
     // The decision leads: agents tend to repeat the first rating they read.
-    `${assessment.route}: ${decisionLabel(assessment)} — ${assessment.decision.reasons.map((reason) => reason.explanation).join(" ")}`,
-    `Rating: ${assessment.quality.toUpperCase()} — ${assessment.verdict}${RELIABLE[assessment.decision.value] ? "" : " (not a recommendation: see the decision)"}`,
-    `Confidence: ${assessment.confidence.level.toUpperCase()}${assessment.confidence.level === "low"
-      ? ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")} Treat the rating as a rough indication only.`
-      : ` — ${assessment.confidence.reasons.map((reason) => reason.explanation).join(" ")}`}`,
-    `Layover ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
+    insufficient
+      ? `${assessment.route}: INSUFFICIENT DATA — ${confidenceReasons} The result cannot be relied on.`
+      : `${assessment.route}: ${decisionLabel(assessment)} — ${assessment.decision.reasons.map((reason) => reason.explanation).join(" ")}`,
+    insufficient
+      ? "Do not call this connection safe, fine or comfortable. Tell the user the estimate is unreliable, why, and what would settle it."
+      : `Rating: ${assessment.quality.toUpperCase()} — ${assessment.verdict}${RELIABLE[assessment.decision.value] ? "" : " (not a recommendation: see the decision)"}`,
+    insufficient
+      ? "Confidence: LOW, for the reasons above."
+      : `Confidence: ${assessment.confidence.level.toUpperCase()} — ${confidenceReasons}${assessment.confidence.level === "low"
+        ? " Tell the user this estimate is less reliable and why." : ""}`,
+    `${insufficient ? "Rough estimate only: layover" : "Layover"} ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
       ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.buffer_minutes} min.`,
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
-    `Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`,
+    ...(insufficient ? [] : [`Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`]),
     `Ticket: ${assessment.ticket.label}.`,
     ...(assessment.if_baggage_recheck
       ? [`Bags: not stated. If they must be collected and checked in again, the margin is ${assessment.if_baggage_recheck.buffer_minutes} min (${assessment.if_baggage_recheck.quality}). Ask the user.`]
@@ -405,7 +414,7 @@ function createServer() {
     const text = ranked.map((entry) => {
       const label = entry.id ? `${entry.id} ` : "";
       return entry.assessment
-        ? `${entry.rank}. ${label}${entry.assessment.route}: ${decisionLabel(entry.assessment)} — rated ${entry.assessment.quality}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence${concerns(entry.assessment)}`
+        ? `${entry.rank}. ${label}${entry.assessment.route}: ${decisionLabel(entry.assessment)} — ${entry.assessment.decision.value === "insufficient_data" ? "estimate only" : `rated ${entry.assessment.quality}`}, margin ${entry.assessment.buffer_minutes} min, ${entry.assessment.ticket.label.toLowerCase()}, ${entry.assessment.confidence.level} confidence${concerns(entry.assessment)}`
         : `${entry.rank}. ${label}could not be assessed: ${entry.error}`;
     }).join("\n") + "\nOnly RECOMMEND and CAUTION options may be presented as workable; for the others, say why.";
     return { content: [{ type: "text", text }], structuredContent: { ranked, disclaimer: DISCLAIMER } };

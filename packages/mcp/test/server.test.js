@@ -290,10 +290,12 @@ test("low confidence is stated up front in the summary", async () => {
     assert.equal(result.structuredContent.quality, "comfortable");
     assert.equal(result.structuredContent.confidence.level, "low");
     const lines = result.content[0].text.split("\n");
-    assert.match(lines[0], /^ZZZ–XXX–YYY: INSUFFICIENT DATA — Key information is missing/);
-    assert.match(lines[1], /^Rating: COMFORTABLE — .*\(not a recommendation: see the decision\)$/);
-    const confidenceLine = lines[2];
-    assert.match(confidenceLine, /^Confidence: LOW — No transfer profile for this airport.*Treat the rating as a rough indication only\.$/);
+    // The decision names what is missing, and the reassuring rating is not in the text at all.
+    assert.match(lines[0], /^ZZZ–XXX–YYY: INSUFFICIENT DATA — No transfer profile for this airport.*cannot be relied on\.$/);
+    assert.match(lines[1], /^Do not call this connection safe, fine or comfortable\./);
+    assert.equal(lines[2], "Confidence: LOW, for the reasons above.");
+    assert.match(lines[3], /^Rough estimate only: layover 120 min/);
+    assert.doesNotMatch(result.content[0].text, /COMFORTABLE|[Cc]omfortable connection|Healthy transfer margin|^Factors:/m);
   } finally {
     await close();
   }
@@ -403,7 +405,7 @@ test("compare_connections ranks by decision: missing data never outranks a usabl
       [["MUC 80m", "recommend"], ["VIE 4h no data", "insufficient_data"], ["FRA 45m", "avoid"]]);
     assert.match(result.content[0].text, /^1\. MUC 80m BER–MUC–JFK: RECOMMEND — rated reasonable, margin 30 min/);
     // Options that are not recommended say why, so "comfortable" is not read as "fine".
-    assert.match(result.content[0].text, /\n2\. VIE 4h no data BER–VIE–JFK: INSUFFICIENT DATA — rated comfortable.*\n   Why: Key information is missing.*No transfer profile/);
+    assert.match(result.content[0].text, /\n2\. VIE 4h no data BER–VIE–JFK: INSUFFICIENT DATA — estimate only, margin.*\n   Why: Key information is missing.*No transfer profile/);
     assert.match(result.content[0].text, /\nOnly RECOMMEND and CAUTION options may be presented as workable; for the others, say why\.$/);
   } finally {
     await close();

@@ -15,6 +15,13 @@ never used `compare_connections`. Structured results are unchanged; the
   options may be presented as workable.
 - `check_connection` results end with a pointer to `compare_connections` for
   comparisons.
+- With `insufficient_data`, the text result names what is missing in its first
+  line, tells the agent not to call the connection safe, and leaves out the
+  rating and the margin factors ("comfortable", "healthy margin"), which agents
+  repeated as reassurance. A low-confidence result asks the agent to tell the
+  user. `structuredContent` is unchanged.
+- Eval: `decision_respected` accepts an answer that gives the outcome with and
+  without the missing detail and asks the user for it.
 - Tool descriptions say when to use each tool and name the alternative
   (`check_connection` ↔ `compare_connections`, `get_airport_profile` ↔
   `list_airports`), and that assessments are deterministic and offline.

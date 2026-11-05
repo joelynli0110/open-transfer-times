@@ -14,7 +14,7 @@ Ask an AI agent to compare layovers. With the MCP server connected, it gets:
 
 ```text
 1. IST 3 h BER–IST–PVG: RECOMMEND — rated comfortable, margin 135 min, protected itinerary, medium confidence
-2. VIE 2 h BER–VIE–PVG: INSUFFICIENT DATA — rated comfortable, margin 65 min, protected itinerary, low confidence
+2. VIE 2 h BER–VIE–PVG: INSUFFICIENT DATA — estimate only, margin 65 min, protected itinerary, low confidence
    Why: Key information is missing, so the rating cannot be relied on. No transfer profile for this airport; generic baseline allowances were used.
 3. FRA 50 min BER–FRA–PVG: AVOID — rated risky, margin -5 min, protected itinerary, medium confidence
    Why: The transfer steps take about as long as the layover or longer.
