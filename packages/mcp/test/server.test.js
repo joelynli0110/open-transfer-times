@@ -411,3 +411,21 @@ test("compare_connections ranks by decision: missing data never outranks a usabl
     await close();
   }
 });
+
+test("check_connection reports published minimum connection times apart from the structural rating", async () => {
+  const { client, close } = await connect();
+  try {
+    const below = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "FRA", to: "FCO", layover_minutes: 45, ticket: "protected" } });
+    assert.equal(below.structuredContent.mct.status, "below_published");
+    assert.equal(below.structuredContent.mct.applicability, "unknown");
+    assert.equal(below.structuredContent.mct.published[0].minutes, 60);
+    assert.equal(below.structuredContent.connection_airport.facts.find((fact) => fact.id === "lufthansa-mct-60").minimum_connection_minutes, 60);
+    assert.match(below.content[0].text, /\nMCT: BELOW a published minimum: 60 min \(only for: Lufthansa-operated[^)]*\)\. Whether it applies to this trip is unknown\./);
+
+    const none = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "LHR", to: "PVG", layover_minutes: 90, ticket: "protected" } });
+    assert.equal(none.structuredContent.mct.status, "none_published");
+    assert.match(none.content[0].text, /\nMCT: no published minimum connection time in this data\. This is a structural estimate, not proof that an airline would sell this connection\./);
+  } finally {
+    await close();
+  }
+});

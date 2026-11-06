@@ -27,6 +27,7 @@ facts:
       Singapore and South Africa, ending the earlier 45-50 minute exception.
     source: lufthansa-mct-2024
     scope: Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa
+    minimum_connection_minutes: 60
 
 sources:
   lufthansa-mct-2024:

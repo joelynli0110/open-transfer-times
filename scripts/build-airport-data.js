@@ -21,7 +21,7 @@ const checkOnly = process.argv.includes("--check");
 const ALLOWANCE_KEYS = ["base_transfer", "passport_control", "terminal_change", "security_rescreening"];
 const BASES = ["heuristic", "sourced"];
 const AIRPORT_KEYS = ["iata", "name", "country", "timezone", "last_reviewed", "allowances", "facts", "sources"];
-const FACT_KEYS = ["id", "claim", "source", "scope"];
+const FACT_KEYS = ["id", "claim", "source", "scope", "minimum_connection_minutes"];
 const SOURCE_KEYS = ["title", "publisher", "url", "retrieved", "published", "note"];
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_ALLOWANCE_MINUTES = 240;
@@ -111,6 +111,13 @@ function validateFacts(file, facts, sources) {
     if (typeof fact.claim !== "string" || !fact.claim.trim()) fail(file, `${where}.claim is required`);
     if (!Object.hasOwn(sources, fact.source)) fail(file, `${where}.source "${fact.source}" is not defined in sources`);
     if (fact.scope !== undefined && typeof fact.scope !== "string") fail(file, `${where}.scope must be text`);
+    if (fact.minimum_connection_minutes !== undefined) {
+      if (!Number.isInteger(fact.minimum_connection_minutes) || fact.minimum_connection_minutes <= 0) {
+        fail(file, `${where}.minimum_connection_minutes must be a positive whole number of minutes`);
+      }
+      // A published minimum connection time always belongs to some airline or route type.
+      if (!fact.scope) fail(file, `${where}.minimum_connection_minutes needs a scope: whose minimum connection time is it?`);
+    }
   });
   for (const id of Object.keys(sources)) {
     if (!facts.some((fact) => fact && fact.source === id)) fail(file, `sources.${id} is not used by any fact`);
@@ -186,7 +193,13 @@ function validateAirport(file, data, expectedIata) {
       terminalChange: allowances.terminal_change,
       securityRescreening: allowances.security_rescreening
     },
-    facts: facts.map((fact) => ({ id: fact.id, claim: fact.claim.trim(), source: fact.source, ...(fact.scope ? { scope: fact.scope } : {}) })),
+    facts: facts.map((fact) => ({
+      id: fact.id,
+      claim: fact.claim.trim(),
+      source: fact.source,
+      ...(fact.scope ? { scope: fact.scope } : {}),
+      ...(fact.minimum_connection_minutes ? { minimumConnectionMinutes: fact.minimum_connection_minutes } : {})
+    })),
     sources,
     coverage: coverageFor(allowances, facts)
   };

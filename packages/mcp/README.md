@@ -47,6 +47,7 @@ Layover 90 min, transfer steps 55 min, margin 35 min.
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
 Factors: Transfer through London Heathrow; Additional security screening may apply; Moderate transfer margin.
 Ticket: Protected itinerary.
+MCT: no published minimum connection time in this data. This is a structural estimate, not proof that an airline would sell this connection.
 Data: London Heathrow profile (partial, 3 cited facts).
 Comparing several options? Send them together to compare_connections, which ranks them.
 Airport facts are context, not extra steps. Apply a fact only where its scope matches this trip:
@@ -70,6 +71,10 @@ Bags: not stated. If they must be collected and checked in again, the margin is 
   leaves out the rating entirely: in the agent evaluation, agents repeated
   "comfortable" and "healthy margin" as reassurance even when the decision said
   the rating could not be relied on. The rating stays in `structuredContent`.
+- `mct` is kept apart from the structural rating. `below_published` means the
+  layover is under an airline's published minimum connection time at this
+  airport (e.g. Lufthansa, 60 min at FRA); whether it applies to the trip is
+  `unknown`, so it is never treated as a pass.
 - `decision` is the field to act on. `insufficient_data` means key information
   is missing (the confidence reasons say what): ask the user rather than
   recommending the connection.

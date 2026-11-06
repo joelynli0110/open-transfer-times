@@ -20,7 +20,9 @@ how well each one is sourced. To propose data without writing YAML, open an issu
    from). Otherwise it stays `basis: heuristic`, even if the step itself is
    confirmed.
 4. **Airline-specific facts need a scope.** A minimum connection time published
-   by one airline applies to that airline's connections; say so in `scope`.
+   by one airline applies to that airline's connections; say so in `scope`, and
+   give the figure as `minimum_connection_minutes` so the engine can check
+   layovers against it.
 5. **Record when you checked.** Set `retrieved` on each source and update
    `last_reviewed` on the airport.
 
@@ -51,6 +53,7 @@ facts:
     claim: All connecting passengers go through security screening again at Heathrow.
     source: heathrow-connecting
     # scope: Air France connections at Paris airports   (optional: the trips the fact applies to)
+    # minimum_connection_minutes: 60   (optional, needs scope: a published minimum connection time)
 
 sources:
   heathrow-connecting:

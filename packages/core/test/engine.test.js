@@ -250,3 +250,23 @@ test("missing data never yields recommend", () => {
     assert.equal(result.decision.value, "insufficient_data", via);
   }
 });
+
+test("a published minimum connection time is checked separately and never counts as a pass when below", () => {
+  // Lufthansa publishes 60 min at FRA for some connections; whether it applies to a trip is not known.
+  const below = assessConnection(itinerary("BER", "FRA", "FCO", "2026-09-20T10:00", "2026-09-20T10:45"), { ticketStatus: "protected" });
+  assert.equal(below.mct.status, "below_published");
+  assert.equal(below.mct.applicability, "unknown");
+  assert.deepEqual(below.mct.published.map((entry) => entry.minutes), [60]);
+  assert.notEqual(below.decision.value, "recommend");
+  assert.ok(below.decision.reasons.some((reason) => reason.code === "BELOW_PUBLISHED_MCT"));
+  assert.ok(below.confidence.reasons.some((reason) => reason.code === "BELOW_PUBLISHED_MCT"));
+  assert.notEqual(below.confidence.level, "high");
+
+  const above = assessConnection(itinerary("BER", "FRA", "FCO", "2026-09-20T10:00", "2026-09-20T11:10"), { ticketStatus: "protected" });
+  assert.equal(above.mct.status, "meets_published");
+  assert.ok(!above.decision.reasons.some((reason) => reason.code === "BELOW_PUBLISHED_MCT"));
+
+  const none = assessConnection(itinerary("BER", "LHR", "PVG", "2026-09-20T10:00", "2026-09-20T11:30"), { ticketStatus: "protected" });
+  assert.equal(none.mct.status, "none_published");
+  assert.equal(none.mct.applicability, "none");
+});

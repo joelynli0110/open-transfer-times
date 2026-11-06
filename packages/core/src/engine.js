@@ -198,13 +198,19 @@
         ? { status: "separate", label: "High disruption exposure", detail: protectionAssessment.explanation }
         : { status: "unknown", label: "Ticket protection unknown", detail: protectionAssessment.explanation };
 
+    // Published minimum connection times (MCT) are a separate question from the structural estimate: whether an
+    // airline would sell this connection, not whether the transfer steps fit. Whether a scoped MCT applies to this
+    // trip (airline, route type) is not known here, so a layover below one is never treated as a pass.
+    const mct = minimumConnectionCheck(airportProfile, layoverMinutes);
+
     const confidence = assessConfidence({
       airportProfile,
       connectionZone,
       routeZoneUnknown,
       checks,
       dstAmbiguous: layover.ambiguous,
-      baggageUnknown: baggageCouldChangeRating ? baggageWhatIf : null
+      baggageUnknown: baggageCouldChangeRating ? baggageWhatIf : null,
+      belowPublishedMct: mct.status === "below_published"
     });
 
     return {
@@ -223,7 +229,8 @@
       ticketProtection,
       verdict: verdictFor(quality, ticketStatus),
       confidence,
-      decision: decide({ quality, confidence, ticketStatus }),
+      decision: decide({ quality, confidence, ticketStatus, belowPublishedMct: mct.status === "below_published" }),
+      mct,
       layoverBasis: layover.basis,
       wallClockLayoverMinutes: layover.wallClockMinutes,
       ...(layover.timeZone ? { timeZone: layover.timeZone } : {}),
@@ -242,13 +249,15 @@
     ROUTE_ZONE_UNKNOWN: "The origin or destination could not be placed inside or outside Schengen; a generic formalities allowance was used.",
     BAGGAGE_UNKNOWN: "Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky.",
     DST_AMBIGUOUS: "A time falls in the hour that repeats when clocks go back; the shorter possible layover was used.",
-    HEURISTIC_ALLOWANCES: "The transfer-step durations are rule-of-thumb estimates, not sourced figures."
+    HEURISTIC_ALLOWANCES: "The transfer-step durations are rule-of-thumb estimates, not sourced figures.",
+    BELOW_PUBLISHED_MCT: "The layover is below a minimum connection time published for some connections at this airport; whether it applies to this trip is not known."
   };
   // Reasons that mean key information is missing: confidence is low.
   const LOW_CONFIDENCE_REASONS = new Set(["BASELINE_AIRPORT", "CONNECTION_ZONE_UNKNOWN", "ROUTE_ZONE_UNKNOWN", "BAGGAGE_UNKNOWN"]);
 
-  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks, dstAmbiguous, baggageUnknown }) {
+  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks, dstAmbiguous, baggageUnknown, belowPublishedMct }) {
     const reasons = [];
+    if (belowPublishedMct) reasons.push("BELOW_PUBLISHED_MCT");
     if (!airportProfile) reasons.push("BASELINE_AIRPORT");
     if (connectionZone === "unknown") reasons.push("CONNECTION_ZONE_UNKNOWN");
     if (routeZoneUnknown) reasons.push("ROUTE_ZONE_UNKNOWN");
@@ -289,28 +298,44 @@
     TIGHT_MARGIN: "Little time is left after the transfer steps.",
     SELF_TRANSFER: "Separate tickets: a missed connection is not protected.",
     TICKET_UNKNOWN: "Ticket protection is not stated; confirm whether both flights are on one booking.",
+    BELOW_PUBLISHED_MCT: "The layover is below a published minimum connection time that may apply; if it does, the airline would not sell this connection, and on separate tickets it is a strong warning.",
     CLEAR: "Enough time after the transfer steps, on a protected ticket, with usable data."
   };
   const DECISIONS = ["recommend", "caution", "insufficient_data", "avoid"];
 
-  function decide({ quality, confidence, ticketStatus }) {
+  function decide({ quality, confidence, ticketStatus, belowPublishedMct }) {
     const reasons = [];
     let value;
     if (quality === "risky") {
       value = "avoid";
       reasons.push("RISKY_MARGIN");
       if (confidence.level === "low") reasons.push("LOW_CONFIDENCE");
+      if (belowPublishedMct) reasons.push("BELOW_PUBLISHED_MCT");
     } else if (confidence.level === "low") {
       value = "insufficient_data";
       reasons.push("LOW_CONFIDENCE");
+      if (belowPublishedMct) reasons.push("BELOW_PUBLISHED_MCT");
     } else {
       if (quality === "tight") reasons.push("TIGHT_MARGIN");
       if (ticketStatus === "separate") reasons.push("SELF_TRANSFER");
       if (ticketStatus === "unknown") reasons.push("TICKET_UNKNOWN");
+      if (belowPublishedMct) reasons.push("BELOW_PUBLISHED_MCT");
       value = reasons.length ? "caution" : "recommend";
       if (!reasons.length) reasons.push("CLEAR");
     }
     return { value, reasons: reasons.map((code) => ({ code, explanation: DECISION_REASONS[code] })) };
+  }
+
+  // status: none_published | meets_published | below_published. "meets" means at or above every published
+  // minimum, not that the airline's rules were checked.
+  function minimumConnectionCheck(airportProfile, layover) {
+    const published = (airportProfile?.facts || [])
+      .filter((fact) => Number.isInteger(fact.minimumConnectionMinutes))
+      .map((fact) => ({ factId: fact.id, minutes: fact.minimumConnectionMinutes, scope: fact.scope }));
+    const status = !published.length
+      ? "none_published"
+      : published.some((entry) => layover < entry.minutes) ? "below_published" : "meets_published";
+    return { status, applicability: published.length ? "unknown" : "none", published };
   }
 
   function layoverMinutes(arrival, departure, connectionAirport) {

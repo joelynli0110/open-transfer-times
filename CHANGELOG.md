@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.2 (open-transfer-times-mcp) / 0.2.1 (open-transfer-times)
+
+Published minimum connection times (MCT) are now checked separately from the
+structural estimate, after a review pointed out that a 45-minute Lufthansa
+connection at FRA got `caution` although Lufthansa publishes 60 minutes.
+
+- Airport facts can carry `minimum_connection_minutes` (requires `scope`).
+  FRA's Lufthansa MCT is the first: 60 minutes.
+- Every assessment has `mct`: `none_published`, `meets_published` or
+  `below_published`, with `applicability: unknown` because the tools take no
+  airline. Below a published MCT adds the `BELOW_PUBLISHED_MCT` reason to the
+  decision and confidence and rules out `recommend`.
+- The text result has an `MCT:` line; with no published MCT it says the result
+  is a structural estimate, not proof that an airline would sell the
+  connection.
+
 ## 0.2.1 (open-transfer-times-mcp only)
 
 Result text changes from the 0.2.0 agent evaluation, where agents called

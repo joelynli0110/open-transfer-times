@@ -50,6 +50,7 @@ const factOutput = z.object({
   id: z.string(),
   claim: z.string(),
   scope: z.string().optional(),
+  minimum_connection_minutes: z.number().optional().describe("A published minimum connection time (MCT), valid only within scope."),
   source: sourceOutput
 });
 const allowanceOutput = z.object({
@@ -100,6 +101,11 @@ const assessmentOutput = z.object({
     reasons: z.array(z.object({ code: z.string(), explanation: z.string() }))
   }).describe("How far the estimate can be trusted, independent of the quality rating. Low means key information is missing."),
   ticket: z.object({ status: z.string(), label: z.string(), detail: z.string() }),
+  mct: z.object({
+    status: z.enum(["none_published", "meets_published", "below_published"]),
+    applicability: z.enum(["unknown", "none"]),
+    published: z.array(z.object({ fact_id: z.string(), minutes: z.number(), scope: z.string().optional() }))
+  }).describe("Published minimum connection times at this airport, separate from the structural estimate. Whether a scoped MCT applies to this trip is unknown, so meets_published does not prove the airline would sell the connection."),
   connection_airport: connectionAirportOutput,
   disclaimer: z.string()
 });
@@ -144,6 +150,7 @@ function describeAirport(code) {
         id: fact.id,
         claim: fact.claim,
         ...(fact.scope ? { scope: fact.scope } : {}),
+        ...(fact.minimumConnectionMinutes ? { minimum_connection_minutes: fact.minimumConnectionMinutes } : {}),
         source: { title: source.title, publisher: source.publisher, url: source.url }
       };
     })
@@ -256,6 +263,11 @@ function assess(input) {
       reasons: result.confidence.reasons.map(({ code, explanation }) => ({ code, explanation }))
     },
     ticket: { ...result.ticketProtection },
+    mct: {
+      status: result.mct.status,
+      applicability: result.mct.applicability,
+      published: result.mct.published.map((entry) => ({ fact_id: entry.factId, minutes: entry.minutes, ...(entry.scope ? { scope: entry.scope } : {}) }))
+    },
     connection_airport: connectionAirport,
     disclaimer: DISCLAIMER
   };
@@ -287,6 +299,7 @@ function summarize(assessment) {
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
     ...(insufficient ? [] : [`Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`]),
     `Ticket: ${assessment.ticket.label}.`,
+    mctLine(assessment),
     ...(assessment.if_baggage_recheck
       ? [`Bags: not stated. If they must be collected and checked in again, the margin is ${assessment.if_baggage_recheck.buffer_minutes} min (${assessment.if_baggage_recheck.quality}). Ask the user.`]
       : []),
@@ -298,6 +311,19 @@ function summarize(assessment) {
         ...assessment.connection_airport.facts.map((fact) => `- ${fact.scope ? `(Only for: ${fact.scope}) ` : ""}${fact.claim}`)]
       : [])
   ].join("\n");
+}
+
+// Kept apart from the structural rating: an estimate that the steps fit is not proof that an airline would sell
+// the connection.
+function mctLine(assessment) {
+  const { status, published } = assessment.mct;
+  if (status === "none_published") {
+    return "MCT: no published minimum connection time in this data. This is a structural estimate, not proof that an airline would sell this connection.";
+  }
+  const list = published.map((entry) => `${entry.minutes} min (only for: ${entry.scope})`).join("; ");
+  return status === "below_published"
+    ? `MCT: BELOW a published minimum: ${list}. Whether it applies to this trip is unknown. Tell the user: if it applies, the airline would not sell this connection on one ticket, and on separate tickets it is a strong warning.`
+    : `MCT: at or above the published minimum: ${list}. This does not prove the airline would sell this connection.`;
 }
 
 // Decisions under which the connection may be presented as fine.

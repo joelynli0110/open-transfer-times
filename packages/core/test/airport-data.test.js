@@ -135,3 +135,14 @@ test("--check still detects real changes", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /out of date/);
 });
+
+test("validator requires a scope and whole minutes for a published minimum connection time", () => {
+  const unscoped = withScratchDataset((scratch) => edit(scratch, "airports/FRA.yaml", (text) =>
+    text.replace(/\n    scope: Lufthansa[^\n]*/, "")));
+  assert.notEqual(unscoped.status, 0);
+  assert.match(unscoped.stderr, /minimum_connection_minutes needs a scope/);
+  const fractional = withScratchDataset((scratch) => edit(scratch, "airports/FRA.yaml", (text) =>
+    text.replace("minimum_connection_minutes: 60", "minimum_connection_minutes: 59.5")));
+  assert.notEqual(fractional.status, 0);
+  assert.match(fractional.stderr, /must be a positive whole number of minutes/);
+});

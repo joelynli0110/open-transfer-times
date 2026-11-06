@@ -297,7 +297,8 @@
             "id": "lufthansa-mct-60",
             "claim": "Lufthansa moved its FRA minimum connecting time to a 60-minute standard from 30 March 2025 for intra-European to intra-European connections and Schengen connections to the USA, Singapore and South Africa, ending the earlier 45-50 minute exception.",
             "source": "lufthansa-mct-2024",
-            "scope": "Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa"
+            "scope": "Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa",
+            "minimumConnectionMinutes": 60
           }
         ],
         "sources": {

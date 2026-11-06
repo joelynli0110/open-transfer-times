@@ -104,8 +104,13 @@ Alongside the rating:
 - **Ticket protection.** Separate tickets change the warning and verdict, but
   do not add transfer time by themselves. When bags on separate tickets are not
   stated, the result shows what a re-check would do.
+- **Published minimum connection times**, checked separately (`mct`). Where an
+  airline publishes an MCT for the airport (Lufthansa's 60 minutes at FRA), a
+  layover below it is flagged. Whether it applies to the trip (airline, route
+  type) is reported as unknown, never as a pass, and it rules out `recommend`.
+  A structural estimate is not proof that an airline would sell a connection.
 - **Decision** (`recommend` / `caution` / `insufficient_data` / `avoid`)
-  combines the three. Missing data never yields `recommend`, and comparisons
+  combines the above. Missing data never yields `recommend`, and comparisons
   rank by decision first.
 
 ## Airport data
@@ -126,8 +131,12 @@ with a sourced figure, or report a rule the format can't express: see
 
 - **Not an official MCT table, and no delay prediction.** It is a structural
   estimate with its sources attached.
-- **Durations are mostly rule-of-thumb.** No minute value is sourced yet, so no
-  result reaches `high` confidence.
+- **Durations are mostly rule-of-thumb.** None of the 52 step durations is
+  sourced yet, so no result reaches `high` confidence. The only sourced minute
+  value is a published airline MCT (FRA). Sourcing durations matters more than
+  adding airports with estimates only.
+- **MCT applicability is not checked.** The tools take no airline, so a
+  published MCT is reported as possibly applying.
 - **One stop at a time.** Itineraries with more connections are rejected; check
   each connection separately.
 - **Schengen status is known for about 56 airports.** A connection at any
