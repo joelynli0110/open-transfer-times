@@ -1,8 +1,8 @@
 # RFC 0001: Context-dependent transfer rules (v0.2)
 
-- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0, see below.
+- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0–0.2.3; Q1 and Q4 decided, see below.
 - Target release: 0.3.0
-- Discussion: GitHub issue linked from this file's PR
+- Discussion: [issue #6](https://github.com/joelynli0110/open-transfer-times/issues/6)
 
 ## Status after 0.2.0
 
@@ -19,6 +19,25 @@ rest of this RFC:
 - **Bags on separate tickets as required / not required / unknown**, with the
   result of a re-check reported when it would matter. This is the first part of
   §4; entry and exit border steps are still open.
+
+## Decided in the discussion (#6), shipped in 0.2.2 and 0.2.3
+
+- **Q1 → every rule is `applies` / `does_not_apply` / `unknown`.** Unknown is
+  neither skipped nor counted as the worst case: it is reported as a possible
+  step, and the margin becomes a range (`buffer_minutes` as the best case,
+  `worst_case` with every possible step). When the worst case is tight or
+  risky, confidence says so and the decision cannot be `recommend`; it does
+  not become `insufficient_data`, since travellers rarely know terminals.
+  0.2.3 applies this to terminal changes, alongside the bag re-check from
+  0.2.0. `applies_when` (§2) will use the same three states.
+- **Q4 → airline MCTs are a separate check, not a transfer step.** "The steps
+  fit" and "an airline would sell this" are different questions. 0.2.2 added
+  `mct` (`none_published` / `meets_published` / `below_published`) with
+  `applicability: unknown`, since the tools take no airline; below a published
+  MCT is never a pass. 0.3.0 adds an operating-airline input so applicability
+  can be decided, and MCTs as structured data with conditions.
+- **Priority:** sourcing step durations (0 of 52 today) comes before adding
+  airports that only have estimates.
 
 The rest of this document is unchanged and targets 0.3.0.
 
@@ -282,7 +301,8 @@ PR 1 is independent and could ship as 0.1.2 of the library.
 
 ## Open questions
 
-- **Q1. Unknown context: skip or assume the worst?** Proposal: do not count,
+- **Q1. Unknown context: skip or assume the worst?** *Decided: possible step
+  and a margin range; see above.* Original proposal: do not count,
   report as possible step, lower confidence. Alternative: count conservative
   steps when unknown, which is safer for travellers but makes many short
   connections look risky on incomplete data. Which serves agents better?
@@ -291,11 +311,12 @@ PR 1 is independent and could ship as 0.1.2 of the library.
 - **Q3. Time zones for airports without a profile.** OurAirports has no time
   zones. Options: a separate public-domain time-zone source (licence to check),
   explicit offsets only, or leave as is with a confidence note.
-- **Q4. Airline-scoped rules.** `operating_airline_in` lets the Lufthansa FRA
+- **Q4. Airline-scoped rules.** *Decided: a separate MCT check; see above.*
+  `operating_airline_in` lets the Lufthansa FRA
   rule become a real step. Do we want airline MCTs in the engine at all, or
   keep them as context facts?
 - **Q5. Format churn.** Is v2 worth breaking contributors' mental model now,
   with few external contributors, rather than later?
 
-Feedback on these is the most useful thing at this stage. Comment on the
-linked issue.
+Feedback on these is the most useful thing at this stage. Comment on
+[issue #6](https://github.com/joelynli0110/open-transfer-times/issues/6).

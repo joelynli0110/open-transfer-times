@@ -59,7 +59,13 @@ test("check_connection matches the core engine and cites airport facts", async (
     const security = data.steps.find((step) => step.code === "SECURITY_RESCREENING");
     assert.deepEqual(security.supporting_facts, ["transfer-security"]);
     assert.equal(data.connection_airport.allowances, undefined, "assessments list counted steps, not every allowance");
-    assert.match(result.content[0].text, /^BER–LHR–PVG: RECOMMEND — .*\nRating: REASONABLE — /);
+    // Terminals not given: a terminal change at LHR (25 min) is a possible step, so the margin is a range.
+    assert.equal(data.terminal_change, "unknown");
+    assert.deepEqual(data.possible_steps.map((step) => [step.code, step.minutes]), [["TERMINAL_CHANGE", 25]]);
+    assert.deepEqual(data.worst_case, { buffer_minutes: 10, quality: "tight" });
+    assert.equal(data.decision.value, "caution");
+    assert.match(result.content[0].text, /^BER–LHR–PVG: CAUTION — The terminals are not known.*\nRating: REASONABLE — /);
+    assert.match(result.content[0].text, /margin 10 to 35 min \(10 min if every possible step applies: tight\)\./);
     assert.match(result.content[0].text, /\nComparing several options\? Send them together to compare_connections/);
   } finally {
     await close();
@@ -402,8 +408,8 @@ test("compare_connections ranks by decision: missing data never outranks a usabl
     ] } });
     const ranked = result.structuredContent.ranked;
     assert.deepEqual(ranked.map((entry) => [entry.id, entry.assessment.decision.value]),
-      [["MUC 80m", "recommend"], ["VIE 4h no data", "insufficient_data"], ["FRA 45m", "avoid"]]);
-    assert.match(result.content[0].text, /^1\. MUC 80m BER–MUC–JFK: RECOMMEND — rated reasonable, margin 30 min/);
+      [["MUC 80m", "caution"], ["VIE 4h no data", "insufficient_data"], ["FRA 45m", "avoid"]]);
+    assert.match(result.content[0].text, /^1\. MUC 80m BER–MUC–JFK: CAUTION — rated reasonable, margin 30 min/);
     // Options that are not recommended say why, so "comfortable" is not read as "fine".
     assert.match(result.content[0].text, /\n2\. VIE 4h no data BER–VIE–JFK: INSUFFICIENT DATA — estimate only, margin.*\n   Why: Key information is missing.*No transfer profile/);
     assert.match(result.content[0].text, /\nOnly RECOMMEND and CAUTION options may be presented as workable; for the others, say why\.$/);
@@ -425,6 +431,28 @@ test("check_connection reports published minimum connection times apart from the
     const none = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "LHR", to: "PVG", layover_minutes: 90, ticket: "protected" } });
     assert.equal(none.structuredContent.mct.status, "none_published");
     assert.match(none.content[0].text, /\nMCT: no published minimum connection time in this data\. This is a structural estimate, not proof that an airline would sell this connection\./);
+  } finally {
+    await close();
+  }
+});
+
+test("terminal change is required, not required or unknown, and unknown is never counted as no change", async () => {
+  const { client, close } = await connect();
+  try {
+    const call = async (extra) => (await client.callTool({ name: "check_connection", arguments: { ...LHR_CONNECTION, ...extra } })).structuredContent;
+    const known = await call({ terminal_change: false });
+    assert.equal(known.terminal_change, "not_required");
+    assert.deepEqual(known.possible_steps, []);
+    assert.equal(known.worst_case, undefined);
+    assert.equal(known.decision.value, "recommend");
+    const required = await call({ terminal_change: true });
+    assert.equal(required.terminal_change, "required");
+    assert.ok(required.steps.some((step) => step.code === "TERMINAL_CHANGE"));
+    const sameTerminal = await call({ arrival_terminal: "5", departure_terminal: "5" });
+    assert.equal(sameTerminal.terminal_change, "not_required");
+    // A single-terminal airport has nothing to ask about.
+    const doha = await call({ via: "DOH" });
+    assert.equal(doha.terminal_change, "not_required");
   } finally {
     await close();
   }

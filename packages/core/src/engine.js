@@ -143,9 +143,15 @@
       checks.push(check("SCHENGEN_BORDER_CONTROL", "Schengen border control", "Not indicated for this transfer flow", true));
     }
 
-    const terminalChange = options.terminalChange === true || (
-      inbound.arrivalTerminal && outbound.departureTerminal && inbound.arrivalTerminal !== outbound.departureTerminal
-    );
+    // Terminal change is required, not required, or unknown. Unknown is not "no change": at an airport where
+    // changing terminals takes time, it becomes a possible step and the result shows the margin with it.
+    const terminalsGiven = Boolean(inbound.arrivalTerminal && outbound.departureTerminal);
+    const terminalChangeState = options.terminalChange === true || (terminalsGiven && inbound.arrivalTerminal !== outbound.departureTerminal)
+      ? "required"
+      : options.terminalChange === false || terminalsGiven || !(rule.terminalChangeMinutes > 0)
+        ? "not_required"
+        : "unknown";
+    const terminalChange = terminalChangeState === "required";
     if (terminalChange) {
       deductions += rule.terminalChangeMinutes;
       processFactors.push(factor("TERMINAL_CHANGE", "Terminal transfer required", "medium", "Changing terminals may add walking or transport time."));
@@ -177,6 +183,21 @@
     // Only matters when a re-check would push the connection into tight or risky.
     const baggageCouldChangeRating = Boolean(baggageWhatIf && baggageWhatIf.quality !== quality
       && (baggageWhatIf.quality === "tight" || baggageWhatIf.quality === "risky"));
+    // Steps that may apply but could not be determined. The margin becomes a range: the counted steps give the
+    // best case, adding every possible step gives the worst case.
+    const possibleSteps = [];
+    if (terminalChangeState === "unknown") {
+      possibleSteps.push({ code: "TERMINAL_CHANGE", label: "Change terminals", minutes: rule.terminalChangeMinutes, unknown: "Terminals not given" });
+    }
+    if (baggageWhatIf) {
+      possibleSteps.push({ code: "BAGGAGE_RECHECK", label: "Collect bags and check in again", minutes: BAGGAGE_RECHECK_MINUTES, unknown: "Bags not stated" });
+    }
+    const worstBuffer = structuralBufferMinutes - possibleSteps.reduce((sum, step) => sum + step.minutes, 0);
+    const worstCase = possibleSteps.length ? { bufferMinutes: worstBuffer, quality: qualityForBuffer(worstBuffer) } : null;
+    // A possible terminal change matters when it would make the connection tight or risky.
+    const terminalCouldChangeRating = terminalChangeState === "unknown"
+      && ["tight", "risky"].includes(qualityForBuffer(structuralBufferMinutes - rule.terminalChangeMinutes))
+      && qualityForBuffer(structuralBufferMinutes - rule.terminalChangeMinutes) !== quality;
     const marginFactor = structuralBufferMinutes < 5
       ? factor("STRUCTURAL_MARGIN", "Insufficient transfer margin", "high", "The scheduled layover is shorter than the structural allowance.")
       : structuralBufferMinutes < 25
@@ -210,6 +231,7 @@
       checks,
       dstAmbiguous: layover.ambiguous,
       baggageUnknown: baggageCouldChangeRating ? baggageWhatIf : null,
+      terminalUnknown: terminalCouldChangeRating ? { minutes: rule.terminalChangeMinutes, bufferMinutes: structuralBufferMinutes - rule.terminalChangeMinutes, quality: qualityForBuffer(structuralBufferMinutes - rule.terminalChangeMinutes) } : null,
       belowPublishedMct: mct.status === "below_published"
     });
 
@@ -229,7 +251,10 @@
       ticketProtection,
       verdict: verdictFor(quality, ticketStatus),
       confidence,
-      decision: decide({ quality, confidence, ticketStatus, belowPublishedMct: mct.status === "below_published" }),
+      decision: decide({ quality, confidence, ticketStatus, belowPublishedMct: mct.status === "below_published", terminalUnknown: terminalCouldChangeRating }),
+      terminalChange: terminalChangeState,
+      possibleSteps,
+      ...(worstCase ? { worstCase } : {}),
       mct,
       layoverBasis: layover.basis,
       wallClockLayoverMinutes: layover.wallClockMinutes,
@@ -250,13 +275,15 @@
     BAGGAGE_UNKNOWN: "Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky.",
     DST_AMBIGUOUS: "A time falls in the hour that repeats when clocks go back; the shorter possible layover was used.",
     HEURISTIC_ALLOWANCES: "The transfer-step durations are rule-of-thumb estimates, not sourced figures.",
-    BELOW_PUBLISHED_MCT: "The layover is below a minimum connection time published for some connections at this airport; whether it applies to this trip is not known."
+    BELOW_PUBLISHED_MCT: "The layover is below a minimum connection time published for some connections at this airport; whether it applies to this trip is not known.",
+    TERMINAL_UNKNOWN: "The terminals are not known; a terminal change would make this connection tight or risky."
   };
   // Reasons that mean key information is missing: confidence is low.
   const LOW_CONFIDENCE_REASONS = new Set(["BASELINE_AIRPORT", "CONNECTION_ZONE_UNKNOWN", "ROUTE_ZONE_UNKNOWN", "BAGGAGE_UNKNOWN"]);
 
-  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks, dstAmbiguous, baggageUnknown, belowPublishedMct }) {
+  function assessConfidence({ airportProfile, connectionZone, routeZoneUnknown, checks, dstAmbiguous, baggageUnknown, belowPublishedMct, terminalUnknown }) {
     const reasons = [];
+    if (terminalUnknown) reasons.push("TERMINAL_UNKNOWN");
     if (belowPublishedMct) reasons.push("BELOW_PUBLISHED_MCT");
     if (!airportProfile) reasons.push("BASELINE_AIRPORT");
     if (connectionZone === "unknown") reasons.push("CONNECTION_ZONE_UNKNOWN");
@@ -282,6 +309,9 @@
       level,
       reasons: reasons.map((code) => {
         let explanation = CONFIDENCE_REASONS[code];
+        if (code === "TERMINAL_UNKNOWN") {
+          explanation += ` With a terminal change (${terminalUnknown.minutes} min) the margin would be ${terminalUnknown.bufferMinutes} min (${terminalUnknown.quality}).`;
+        }
         if (code === "BAGGAGE_UNKNOWN") {
           explanation += ` With a bag re-check the margin would be ${baggageUnknown.bufferMinutes} min (${baggageUnknown.quality}).`;
         }
@@ -299,11 +329,12 @@
     SELF_TRANSFER: "Separate tickets: a missed connection is not protected.",
     TICKET_UNKNOWN: "Ticket protection is not stated; confirm whether both flights are on one booking.",
     BELOW_PUBLISHED_MCT: "The layover is below a published minimum connection time that may apply; if it does, the airline would not sell this connection, and on separate tickets it is a strong warning.",
+    TERMINAL_UNKNOWN: "The terminals are not known, and a terminal change would leave little or no margin; ask for the terminals.",
     CLEAR: "Enough time after the transfer steps, on a protected ticket, with usable data."
   };
   const DECISIONS = ["recommend", "caution", "insufficient_data", "avoid"];
 
-  function decide({ quality, confidence, ticketStatus, belowPublishedMct }) {
+  function decide({ quality, confidence, ticketStatus, belowPublishedMct, terminalUnknown }) {
     const reasons = [];
     let value;
     if (quality === "risky") {
@@ -320,6 +351,7 @@
       if (ticketStatus === "separate") reasons.push("SELF_TRANSFER");
       if (ticketStatus === "unknown") reasons.push("TICKET_UNKNOWN");
       if (belowPublishedMct) reasons.push("BELOW_PUBLISHED_MCT");
+      if (terminalUnknown) reasons.push("TERMINAL_UNKNOWN");
       value = reasons.length ? "caution" : "recommend";
       if (!reasons.length) reasons.push("CLEAR");
     }

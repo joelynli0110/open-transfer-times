@@ -270,3 +270,26 @@ test("a published minimum connection time is checked separately and never counts
   assert.equal(none.mct.status, "none_published");
   assert.equal(none.mct.applicability, "none");
 });
+
+test("unknown terminals become a possible step: the margin is a range, never a silent 'no change'", () => {
+  const unknown = assessConnection(itinerary("BER", "LHR", "PVG", "2026-09-20T10:00", "2026-09-20T11:30"), { ticketStatus: "protected" });
+  assert.equal(unknown.terminalChange, "unknown");
+  assert.equal(unknown.structuralBufferMinutes, 35);
+  assert.deepEqual(unknown.worstCase, { bufferMinutes: 10, quality: "tight" });
+  assert.equal(unknown.decision.value, "caution");
+  assert.ok(unknown.confidence.reasons.some((reason) => reason.code === "TERMINAL_UNKNOWN"));
+
+  const ruledOut = assessConnection(itinerary("BER", "LHR", "PVG", "2026-09-20T10:00", "2026-09-20T11:30"), { ticketStatus: "protected", terminalChange: false });
+  assert.equal(ruledOut.terminalChange, "not_required");
+  assert.equal(ruledOut.decision.value, "recommend");
+
+  // A long layover stays recommended: the possible step is listed but cannot make it tight.
+  const long = assessConnection(itinerary("BER", "LHR", "PVG", "2026-09-20T10:00", "2026-09-20T12:30"), { ticketStatus: "protected" });
+  assert.equal(long.decision.value, "recommend");
+  assert.deepEqual(long.possibleSteps.map((step) => step.code), ["TERMINAL_CHANGE"]);
+
+  // Separate tickets with unknown bags and terminals: the worst case adds both.
+  const both = assessConnection(itinerary("BER", "LHR", "PVG", "2026-09-20T10:00", "2026-09-20T13:00"), { ticketStatus: "separate" });
+  assert.deepEqual(both.possibleSteps.map((step) => step.code), ["TERMINAL_CHANGE", "BAGGAGE_RECHECK"]);
+  assert.equal(both.worstCase.bufferMinutes, both.structuralBufferMinutes - 25 - 45);
+});

@@ -36,7 +36,7 @@ const connectionFields = {
     .describe("protected = both flights on one ticket/booking; separate = self-transfer on separate tickets; unknown if not stated"),
   arrival_terminal: z.string().trim().min(1).optional().describe("Arrival terminal at the connection airport, if known"),
   departure_terminal: z.string().trim().min(1).optional().describe("Departure terminal at the connection airport, if known"),
-  terminal_change: z.boolean().optional().describe("Set true if a terminal change is known but terminals are not given"),
+  terminal_change: z.boolean().optional().describe("true if the user knows they change terminals, false if they know they do not. Leave out if unknown: the result then shows the margin with a possible terminal change."),
   baggage_recheck: z.boolean().optional()
     .describe("true if checked bags must be collected and checked in again, false if not (hand luggage only, or bags checked through). On separate tickets, leave it out only if unknown: the result then says whether it matters.")
 };
@@ -89,6 +89,12 @@ const assessmentOutput = z.object({
   baggage_recheck: z.enum(["required", "not_required", "unknown"]),
   if_baggage_recheck: z.object({ buffer_minutes: z.number(), quality: z.string() }).optional()
     .describe("Separate tickets with unknown bags: the result if bags must be re-checked."),
+  terminal_change: z.enum(["required", "not_required", "unknown"])
+    .describe("unknown: terminals were not given at an airport where changing terminals takes time; see possible_steps."),
+  possible_steps: z.array(z.object({ code: z.string(), label: z.string(), minutes: z.number(), unknown: z.string() }))
+    .describe("Steps that may apply but could not be determined. They are not in steps or buffer_minutes; worst_case adds them."),
+  worst_case: z.object({ buffer_minutes: z.number(), quality: z.string() }).optional()
+    .describe("The margin if every possible step applies. buffer_minutes is the best case."),
   quality: z.enum(["comfortable", "reasonable", "tight", "risky"]),
   verdict: z.string(),
   layover_minutes: z.number(),
@@ -231,7 +237,7 @@ function assess(input) {
   };
   const result = core.assessConnection(itinerary, {
     ticketStatus: input.ticket,
-    terminalChange: input.terminal_change === true,
+    terminalChange: input.terminal_change, // true, false, or undefined = unknown
     baggageRecheck: input.baggage_recheck // true, false, or undefined = unknown
   });
   const steps = appliedSteps(result);
@@ -251,6 +257,9 @@ function assess(input) {
     ...(result.wallClockLayoverMinutes !== result.layoverMinutes ? { wall_clock_layover_minutes: result.wallClockLayoverMinutes } : {}),
     baggage_recheck: result.baggageRecheck,
     ...(result.ifBaggageRecheck ? { if_baggage_recheck: { buffer_minutes: result.ifBaggageRecheck.bufferMinutes, quality: result.ifBaggageRecheck.quality } } : {}),
+    terminal_change: result.terminalChange,
+    possible_steps: result.possibleSteps.map(({ code, label, minutes, unknown }) => ({ code, label, minutes, unknown })),
+    ...(result.worstCase ? { worst_case: { buffer_minutes: result.worstCase.bufferMinutes, quality: result.worstCase.quality } } : {}),
     quality: result.quality,
     verdict: result.verdict,
     layover_minutes: result.layoverMinutes,
@@ -295,8 +304,13 @@ function summarize(assessment) {
       : `Confidence: ${assessment.confidence.level.toUpperCase()} — ${confidenceReasons}${assessment.confidence.level === "low"
         ? " Tell the user this estimate is less reliable and why." : ""}`,
     `${insufficient ? "Rough estimate only: layover" : "Layover"} ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
-      ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.buffer_minutes} min.`,
+      ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.worst_case
+      ? `${assessment.worst_case.buffer_minutes} to ${assessment.buffer_minutes} min (${assessment.worst_case.buffer_minutes} min if every possible step applies: ${assessment.worst_case.quality})`
+      : `${assessment.buffer_minutes} min`}.`,
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
+    ...(assessment.possible_steps.some((step) => step.code === "TERMINAL_CHANGE")
+      ? [`Possible step not counted: Change terminals ${assessment.possible_steps.find((step) => step.code === "TERMINAL_CHANGE").minutes} min (terminals not given). Give the margin as a range and ask for the terminals if it matters.`]
+      : []),
     ...(insufficient ? [] : [`Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`]),
     `Ticket: ${assessment.ticket.label}.`,
     mctLine(assessment),

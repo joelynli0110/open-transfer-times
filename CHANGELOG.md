@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.3 (open-transfer-times-mcp) / 0.2.2 (open-transfer-times)
+
+Unknown terminals are no longer treated as "no terminal change". From the
+discussion in #6 (RFC 0001, Q1): every step applies, does not apply, or is
+unknown, and unknown steps make the margin a range.
+
+- Assessments report `terminal_change` (`required` / `not_required` /
+  `unknown`), `possible_steps` and `worst_case` (the margin if every possible
+  step applies; `buffer_minutes` stays the best case). Unknown means terminals
+  were not given at an airport where changing terminals takes time.
+- When a possible terminal change would make the connection tight or risky,
+  confidence says so (`TERMINAL_UNKNOWN`) and the decision is `caution`, not
+  `recommend`. Example: 90 minutes at LHR on one ticket is now `caution`
+  (margin 10 to 35 min) unless the terminals are given or ruled out.
+- `terminal_change: false` now means "known: no change"; leave it out when
+  unknown.
+- The text result gives the margin as a range and lists the possible step.
+- RFC 0001 records Q1 and Q4 as decided and links its discussion (#6).
+
 ## 0.2.2 (open-transfer-times-mcp) / 0.2.1 (open-transfer-times)
 
 Published minimum connection times (MCT) are now checked separately from the

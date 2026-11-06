@@ -17,7 +17,7 @@ Ask an AI agent to compare layovers. With the MCP server connected, it gets:
 2. VIE 2 h BER–VIE–PVG: INSUFFICIENT DATA — estimate only, margin 65 min, protected itinerary, low confidence
    Why: Key information is missing, so the rating cannot be relied on. No transfer profile for this airport; generic baseline allowances were used.
 3. FRA 50 min BER–FRA–PVG: AVOID — rated risky, margin -5 min, protected itinerary, medium confidence
-   Why: The transfer steps take about as long as the layover or longer.
+   Why: The transfer steps take about as long as the layover or longer. The layover is below a published minimum connection time that may apply; if it does, the airline would not sell this connection, and on separate tickets it is a strong warning.
 Only RECOMMEND and CAUTION options may be presented as workable; for the others, say why.
 ```
 
@@ -26,11 +26,12 @@ result gives a decision, the transfer steps it counted, a confidence level, and
 the official sources behind the airport data:
 
 ```text
-BER–LHR–PVG: RECOMMEND — Enough time after the transfer steps, on a protected ticket, with usable data.
+BER–LHR–PVG: CAUTION — The terminals are not known, and a terminal change would leave little or no margin; ask for the terminals.
 Rating: REASONABLE — A practical connection on one ticket.
-Confidence: MEDIUM — The transfer-step durations are rule-of-thumb estimates, not sourced figures.
-Layover 90 min, transfer steps 55 min, margin 35 min.
+Confidence: MEDIUM — The terminals are not known; a terminal change would make this connection tight or risky. With a terminal change (25 min) the margin would be 10 min (tight). The transfer-step durations are rule-of-thumb estimates, not sourced figures.
+Layover 90 min, transfer steps 55 min, margin 10 to 35 min (10 min if every possible step applies: tight).
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
+Possible step not counted: Change terminals 25 min (terminals not given). Give the margin as a range and ask for the terminals if it matters.
 ```
 
 ### With Claude Desktop or any MCP client
@@ -91,8 +92,10 @@ never does the arithmetic.
    zone, so a daylight-saving change is accounted for.
 2. Deduct the transfer steps that apply at the connection airport: a base
    transfer allowance, Schengen passport control when the transfer crosses the
-   Schengen border, a terminal change when known, security re-screening, and
-   bag re-check when stated.
+   Schengen border, a terminal change, security re-screening, and bag re-check.
+   Each step applies, does not apply, or is unknown. An unknown step (terminals
+   or bags not given) is not counted as "no": it is listed as a possible step,
+   and the margin becomes a range from best to worst case.
 3. Rate the remaining margin: `comfortable` (≥ 45 min), `reasonable` (≥ 25),
    `tight` (≥ 5) or `risky`.
 
@@ -144,7 +147,10 @@ with a sourced figure, or report a rule the format can't express: see
   confidence.
 - **One rule set per airport.** Rules that depend on where you arrive from
   (security at AMS), on terminal pairs (NRT) or on "some cases" (MUC) are not
-  modelled yet.
+  modelled yet. Terminal changes and bag re-checks are already reported as
+  possible steps when unknown; AMS and MUC re-screening still count as 0 until
+  conditional rules ([RFC 0001](docs/rfcs/0001-context-dependent-rules.md))
+  can mark them unknown.
 - **Self-transfers.** Re-checking bags adds a fixed allowance, but entering and
   leaving the country is not counted outside Schengen.
 - **Clock changes at other airports.** Only the 13 profiled airports have time
@@ -157,8 +163,8 @@ with a sourced figure, or report a rule the format can't express: see
 [RFC 0001](docs/rfcs/0001-context-dependent-rules.md) proposes the next steps: a
 country for every airport, rules with conditions, self-transfer border steps,
 time zones beyond the profiled airports, and sourced durations for MUC, NRT and
-LHR. It addresses most of the limitations above. Feedback is welcome on its
-discussion issue.
+LHR. It addresses most of the limitations above. Feedback is welcome on
+[issue #6](https://github.com/joelynli0110/open-transfer-times/issues/6).
 
 The [agent evaluation](eval) measures how reliably an AI agent uses the server:
 38 questions in Chinese and English, graded on tool calls and answer accuracy,
