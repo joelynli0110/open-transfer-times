@@ -99,7 +99,19 @@ function parseArguments(raw) {
 
 // noThink appends Qwen3's documented "/no_think" switch to the system and user
 // prompts, so the model answers without a long reasoning phase.
-function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = globalThis.fetch, headers = {}, noThink = false }) {
+// Rate limits (429) and overload (503) are retried with backoff, honouring Retry-After, so a burst of judge
+// calls does not turn into a column of errors.
+const RETRY_STATUSES = new Set([429, 503]);
+const MAX_RETRIES = 6;
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryDelayMs(response, attempt) {
+  const header = Number(response.headers?.get?.("retry-after"));
+  if (Number.isFinite(header) && header > 0) return Math.min(header, 120) * 1000;
+  return Math.min(2 ** attempt * 2000, 60000);
+}
+
+function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = globalThis.fetch, headers = {}, noThink = false, sleep = defaultSleep }) {
   if (!baseUrl) throw new Error("An OpenAI-compatible provider needs a base URL (--base-url).");
   const endpoint = `${baseUrl.replace(/\/+$/, "")}/chat/completions`;
 
@@ -107,16 +119,23 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
 
   async function chat(body) {
     let response;
-    try {
-      response = await fetchImpl(endpoint, {
-        method: "POST",
-        headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}), ...headers },
-        body: JSON.stringify({ model, ...body })
-      });
-    } catch (error) {
-      const code = error.cause?.code || error.code || error.message;
-      throw new Error(`Could not reach ${endpoint} (${code}). Is the server running? For Ollama, check that ` +
-        `"ollama list" works, or pass --base-url.`);
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        response = await fetchImpl(endpoint, {
+          method: "POST",
+          headers: { "content-type": "application/json", ...(apiKey ? { authorization: `Bearer ${apiKey}` } : {}), ...headers },
+          body: JSON.stringify({ model, ...body })
+        });
+      } catch (error) {
+        const code = error.cause?.code || error.code || error.message;
+        throw new Error(`Could not reach ${endpoint} (${code}). Is the server running? For Ollama, check that ` +
+          `"ollama list" works, or pass --base-url.`);
+      }
+      if (!RETRY_STATUSES.has(response.status) || attempt >= MAX_RETRIES) break;
+      const wait = retryDelayMs(response, attempt);
+      console.error(`  ${label || baseUrl} returned ${response.status}; retrying in ${Math.round(wait / 1000)} s`);
+      await response.text().catch(() => {});
+      await sleep(wait);
     }
     const text = await response.text();
     if (!response.ok) throw new Error(`${label || baseUrl} returned ${response.status}: ${text.slice(0, 300)}`);
@@ -164,7 +183,7 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
  * Builds a provider from CLI-style options.
  * @param {{ provider?: string, model?: string, baseUrl?: string, apiKeyEnv?: string }} options
  */
-function createProvider({ provider = "anthropic", model, baseUrl, apiKeyEnv, env = process.env, fetchImpl, anthropicClient, noThink = false } = {}) {
+function createProvider({ provider = "anthropic", model, baseUrl, apiKeyEnv, env = process.env, fetchImpl, anthropicClient, noThink = false, sleep } = {}) {
   const preset = PRESETS[provider];
   if (!preset) throw new Error(`Unknown provider "${provider}". Use one of: ${Object.keys(PRESETS).join(", ")}.`);
   const chosenModel = model || preset.defaultModel;
@@ -177,7 +196,7 @@ function createProvider({ provider = "anthropic", model, baseUrl, apiKeyEnv, env
     const client = anthropicClient || new (require("@anthropic-ai/sdk").default)({ apiKey });
     return anthropicProvider({ client, model: chosenModel });
   }
-  return openAICompatibleProvider({ baseUrl: baseUrl || preset.baseUrl, apiKey, model: chosenModel, label: provider, fetchImpl, noThink });
+  return openAICompatibleProvider({ baseUrl: baseUrl || preset.baseUrl, apiKey, model: chosenModel, label: provider, fetchImpl, noThink, ...(sleep ? { sleep } : {}) });
 }
 
 module.exports = { createProvider, anthropicProvider, openAICompatibleProvider, PRESETS, DEFAULT_SYSTEM, toFunctionTool, stripThinking };

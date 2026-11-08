@@ -7,7 +7,10 @@
   change, the worst-case margin or a published MCT as invented or wrong
   (numbers_match fell from 98% to 74% between 0.2.1 and 0.2.3).
 - Eval: `npm run eval:rejudge` regrades stored answers with the current judge,
-  without running the agent again.
+  without running the agent again; `--errors-only` retries only failed gradings.
+- Eval: OpenAI-compatible providers retry HTTP 429 and 503 with backoff
+  (honouring Retry-After), and `eval:compare` warns when judge errors are
+  counted as failures.
 
 ## 0.2.3 (open-transfer-times-mcp) / 0.2.2 (open-transfer-times)
 

@@ -30,6 +30,11 @@ function compareRuns(runs) {
   const lines = ["# Agent evaluation: comparison", ""];
   lines.push(`Compared on ${shared.size} case(s) present in every run.`);
   if (judges.length > 1) lines.push(`**Warning:** runs used different judges (${judges.join(", ")}); answer checks are not directly comparable.`);
+  // A judge error (rate limit, unreadable reply) counts as a failed check; say so, or the table looks like a regression.
+  outcomes.forEach((list, index) => {
+    const errors = list.filter((o) => Object.values(o.result.judge || {}).some((item) => item.verdict === "error")).length;
+    if (errors) lines.push(`**Warning:** ${label(runs[index].meta)} has ${errors} run(s) with judge errors, counted as failures. Regrade them with \`npm run eval:rejudge -- <file> <judge options> --errors-only\`.`);
+  });
   lines.push("", `| | ${runs.map((run) => label(run.meta)).join(" | ")} |`, `| --- |${runs.map(() => " --- |").join("")}`);
   lines.push(`| **Runs passing every check** | ${outcomes.map((list) => `**${pct(list.filter((o) => o.passed).length, list.length)}**`).join(" | ")} |`);
 

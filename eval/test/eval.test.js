@@ -467,3 +467,38 @@ test("rejudge regrades stored answers without running the agent", async () => {
   assert.ok(out.meta.rejudgedAt);
   assert.equal(data.results[0].judge.numbers_match.verdict, "fail", "the input is not changed");
 });
+
+test("rate limits are retried with backoff instead of failing the call", async () => {
+  let calls = 0;
+  const waits = [];
+  const fetchImpl = async () => {
+    calls += 1;
+    if (calls < 3) return { status: 429, ok: false, headers: { get: (name) => (name === "retry-after" ? "7" : null) }, text: async () => "rate limited" };
+    return { status: 200, ok: true, headers: { get: () => null }, text: async () => JSON.stringify({ choices: [{ message: { content: "ok" } }] }) };
+  };
+  const provider = createProvider({ provider: "ollama", model: "m", fetchImpl, sleep: async (ms) => waits.push(ms) });
+  assert.equal(await provider.complete("hi"), "ok");
+  assert.equal(calls, 3);
+  assert.deepEqual(waits, [7000, 7000]);
+});
+
+test("rejudge --errors-only regrades only runs whose judge failed, and compare warns about judge errors", async () => {
+  const { rejudge, parseRejudgeArgs, judgeFailed } = require("../src/rejudge.js");
+  assert.equal(parseRejudgeArgs(["a-rejudged.json", "--errors-only"]).errorsOnly, true);
+  const testCase = cases.find((c) => c.id === "times-lhr-terminals-en");
+  const items = testCase.expect.judge || DEFAULT_ITEMS;
+  let prompts = 0;
+  const judge = { name: "fake:judge", async complete() {
+    prompts += 1;
+    return JSON.stringify({ items: Object.fromEntries(items.map((id) => [id, { verdict: "pass", reason: "" }])) });
+  } };
+  const errored = { id: testCase.id, run: 1, category: testCase.category, deterministic: [], transcript: { answer: "x", calls: [] },
+    judge: { numbers_match: { verdict: "error", reason: "judge failed: 429" } } };
+  const fine = { ...errored, run: 2, judge: { numbers_match: { verdict: "fail", reason: "kept" } } };
+  const data = { meta: { agent: "a", judge: "fake:judge", serverVersion: "x", usage: { input_tokens: 0, output_tokens: 0 } }, results: [errored, fine] };
+  assert.match(compareRuns([data, data]), /has 1 run\(s\) with judge errors/);
+  const out = await rejudge({ data, cases, judge, errorsOnly: true });
+  assert.equal(prompts, 1);
+  assert.ok(!judgeFailed(out.results[0]));
+  assert.equal(out.results[1].judge.numbers_match.reason, "kept");
+});

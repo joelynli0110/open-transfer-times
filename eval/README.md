@@ -59,6 +59,10 @@ npm run eval:rejudge -- eval/results/<run>.json --judge-provider <p> --judge-mod
 ```
 
 It writes `<run>-rejudged.json` and `.md` and leaves the input unchanged.
+Rate limits (HTTP 429) are retried with backoff. If some runs still end with a
+judge error, run the same command on the `-rejudged.json` file with
+`--errors-only`; `eval:compare` warns when a run has judge errors, since they
+count as failed checks.
 Regrade every run you compare, so they share the same grading; it costs only
 judge calls.
 
