@@ -2,10 +2,13 @@
   const data = typeof module === "object" && module.exports
     ? require("./data/airport-data.generated.js")
     : root.ConnectionQualityAirportData;
-  const api = factory(data);
+  const catalog = typeof module === "object" && module.exports
+    ? require("./airport-catalog.js")
+    : root.ConnectionQualityAirportCatalog;
+  const api = factory(data, catalog);
   if (typeof module === "object" && module.exports) module.exports = api;
   root.ConnectionQualityAirportRules = api;
-})(typeof globalThis !== "undefined" ? globalThis : this, function createAirportRules(data) {
+})(typeof globalThis !== "undefined" ? globalThis : this, function createAirportRules(data, catalog) {
   "use strict";
 
   // The transfer data lives in airports/*.yaml and regions/schengen.yaml.
@@ -26,13 +29,24 @@
     Object.entries(data.airports).map(([iata, profile]) => [iata, toRule(profile)])
   ));
   const FALLBACK_RULE = toRule(data.baseline);
-  const SCHENGEN_AIRPORTS = new Set(data.schengen.airports);
-  const NON_SCHENGEN_AIRPORTS = new Set(data.schengen.nonSchengenAirports);
+  const SCHENGEN_COUNTRIES = new Set(data.schengen.countries);
+  const OUTSIDE_SCHENGEN = new Set(data.schengen.outsideSchengen);
+
+  // A profile's country wins; otherwise the catalog (OurAirports) gives it.
+  function countryForAirport(airport) {
+    const code = String(airport || "").toUpperCase();
+    return data.airports[code]?.country || catalog?.countryForAirport(code);
+  }
+
+  function continentForAirport(airport) {
+    return catalog?.continentForAirport(String(airport || "").toUpperCase());
+  }
 
   function travelZone(airport) {
-    if (SCHENGEN_AIRPORTS.has(airport)) return "schengen";
-    if (NON_SCHENGEN_AIRPORTS.has(airport)) return "non-schengen";
-    return "unknown";
+    const code = String(airport || "").toUpperCase();
+    const country = countryForAirport(code);
+    if (!country) return "unknown";
+    return SCHENGEN_COUNTRIES.has(country) && !OUTSIDE_SCHENGEN.has(code) ? "schengen" : "non-schengen";
   }
 
   // Full transfer profile including allowance bases, facts and sources,
@@ -48,9 +62,10 @@
   return {
     AIRPORT_RULES,
     FALLBACK_RULE,
-    SCHENGEN_AIRPORTS,
-    NON_SCHENGEN_AIRPORTS,
+    SCHENGEN_COUNTRIES,
     travelZone,
+    countryForAirport,
+    continentForAirport,
     getAirportProfile,
     listAirportProfiles
   };

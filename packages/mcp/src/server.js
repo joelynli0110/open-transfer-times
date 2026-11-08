@@ -22,6 +22,8 @@ const DISCLAIMER =
 const iata = z.string().trim().regex(/^[A-Za-z]{3}$/, "3-letter IATA airport code").transform((value) => value.toUpperCase());
 const localTime = z.string().regex(LOCAL_TIME, "Local time at the connection airport, YYYY-MM-DDTHH:mm, optionally with a UTC offset such as +02:00");
 
+const airlineCode = z.string().trim().toUpperCase().regex(/^[A-Z0-9]{2}$/, "Use a two-character IATA airline code, e.g. LH");
+
 const connectionFields = {
   from: iata.describe("Origin airport of the first flight (IATA), e.g. BER"),
   via: iata.describe("Connection airport (IATA), e.g. IST"),
@@ -38,7 +40,11 @@ const connectionFields = {
   departure_terminal: z.string().trim().min(1).optional().describe("Departure terminal at the connection airport, if known"),
   terminal_change: z.boolean().optional().describe("true if the user knows they change terminals, false if they know they do not. Leave out if unknown: the result then shows the margin with a possible terminal change."),
   baggage_recheck: z.boolean().optional()
-    .describe("true if checked bags must be collected and checked in again, false if not (hand luggage only, or bags checked through). On separate tickets, leave it out only if unknown: the result then says whether it matters.")
+    .describe("true if checked bags must be collected and checked in again, false if not (hand luggage only, or bags checked through). On separate tickets, leave it out only if unknown: the result then says whether it matters."),
+  inbound_airline: airlineCode.optional()
+    .describe("IATA code of the airline operating the first flight (e.g. LH), if known. Used to decide whether an airline's minimum connection time applies."),
+  outbound_airline: airlineCode.optional()
+    .describe("IATA code of the airline operating the second flight, if known.")
 };
 const connectionInput = z.object(connectionFields);
 
@@ -108,9 +114,12 @@ const assessmentOutput = z.object({
   }).describe("How far the estimate can be trusted, independent of the quality rating. Low means key information is missing."),
   ticket: z.object({ status: z.string(), label: z.string(), detail: z.string() }),
   mct: z.object({
-    status: z.enum(["none_published", "meets_published", "below_published"]),
-    applicability: z.enum(["unknown", "none"]),
-    published: z.array(z.object({ fact_id: z.string(), minutes: z.number(), scope: z.string().optional() }))
+    status: z.enum(["none_published", "not_applicable", "meets_published", "below_published"]),
+    applicability: z.enum(["applies", "unknown", "does_not_apply", "none"]),
+    published: z.array(z.object({
+      fact_id: z.string(), minutes: z.number(), scope: z.string().optional(),
+      applicability: z.enum(["applies", "unknown", "does_not_apply"])
+    }))
   }).describe("Published minimum connection times at this airport, separate from the structural estimate. Whether a scoped MCT applies to this trip is unknown, so meets_published does not prove the airline would sell the connection."),
   connection_airport: connectionAirportOutput,
   disclaimer: z.string()
@@ -238,7 +247,9 @@ function assess(input) {
   const result = core.assessConnection(itinerary, {
     ticketStatus: input.ticket,
     terminalChange: input.terminal_change, // true, false, or undefined = unknown
-    baggageRecheck: input.baggage_recheck // true, false, or undefined = unknown
+    baggageRecheck: input.baggage_recheck, // true, false, or undefined = unknown
+    inboundAirline: input.inbound_airline,
+    outboundAirline: input.outbound_airline
   });
   const steps = appliedSteps(result);
   const stepTotal = steps.reduce((sum, step) => sum + step.minutes, 0);
@@ -275,7 +286,9 @@ function assess(input) {
     mct: {
       status: result.mct.status,
       applicability: result.mct.applicability,
-      published: result.mct.published.map((entry) => ({ fact_id: entry.factId, minutes: entry.minutes, ...(entry.scope ? { scope: entry.scope } : {}) }))
+      published: result.mct.published.map((entry) => ({
+        fact_id: entry.factId, minutes: entry.minutes, ...(entry.scope ? { scope: entry.scope } : {}), applicability: entry.applicability
+      }))
     },
     connection_airport: connectionAirport,
     disclaimer: DISCLAIMER
@@ -338,14 +351,23 @@ function summarize(assessment) {
 // Kept apart from the structural rating: an estimate that the steps fit is not proof that an airline would sell
 // the connection.
 function mctLine(assessment) {
-  const { status, published } = assessment.mct;
-  if (status === "none_published") {
-    return "MCT: no published minimum connection time in this data. This is a structural estimate, not proof that an airline would sell this connection.";
+  const { status, applicability, published } = assessment.mct;
+  const list = (entries) => entries.map((entry) => `${entry.minutes} min (${entry.scope})`).join("; ");
+  const relevant = published.filter((entry) => entry.applicability !== "does_not_apply");
+  const notProof = "This is a structural estimate, not proof that an airline would sell this connection.";
+  if (status === "none_published") return `MCT: no published minimum connection time in this data. ${notProof}`;
+  if (status === "not_applicable") return `MCT: the published minimum here does not apply to this trip (${list(published)}). ${notProof}`;
+  if (status === "below_published" && applicability === "applies") {
+    return `MCT: BELOW the minimum connection time that applies to this trip: ${list(relevant.filter((entry) => entry.applicability === "applies"))}. ` +
+      "Tell the user: the airline does not consider this connection feasible and would not sell it on one ticket.";
   }
-  const list = published.map((entry) => `${entry.minutes} min (only for: ${entry.scope})`).join("; ");
-  return status === "below_published"
-    ? `MCT: BELOW a published minimum: ${list}. Whether it applies to this trip is unknown. Tell the user: if it applies, the airline would not sell this connection on one ticket, and on separate tickets it is a strong warning.`
-    : `MCT: at or above the published minimum: ${list}. This does not prove the airline would sell this connection.`;
+  if (status === "below_published") {
+    return `MCT: BELOW a published minimum that may apply: ${list(relevant)}. Whether it applies is unknown` +
+      " (it depends on the operating airlines; ask which airline operates each flight). Tell the user: if it applies, the airline would not sell this connection on one ticket, and on separate tickets it is a strong warning.";
+  }
+  return applicability === "applies"
+    ? `MCT: meets the minimum connection time that applies to this trip: ${list(relevant.filter((entry) => entry.applicability === "applies"))}.`
+    : `MCT: at or above the published minimum: ${list(relevant)}. ${notProof}`;
 }
 
 function possibleMinutes(assessment) {

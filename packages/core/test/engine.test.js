@@ -293,3 +293,16 @@ test("unknown terminals become a possible step: the margin is a range, never a s
   assert.deepEqual(both.possibleSteps.map((step) => step.code), ["TERMINAL_CHANGE", "BAGGAGE_RECHECK"]);
   assert.equal(both.worstCase.bufferMinutes, both.structuralBufferMinutes - 25 - 45);
 });
+
+test("applies_when uses three-valued logic: airline and route can each rule an MCT in or out", () => {
+  const trip = (to, minutes, options) => assessConnection(itinerary("BER", "FRA", to, "2026-09-20T10:00",
+    new Date(Date.parse("2026-09-20T10:00Z") + minutes * 60000).toISOString().slice(0, 16)), { ticketStatus: "protected", terminalChange: false, ...options });
+  assert.equal(trip("FCO", 50, {}).mct.applicability, "unknown", "route matches, airlines not given");
+  assert.equal(trip("FCO", 50, { inboundAirline: "LH" }).mct.applicability, "unknown", "one airline given is not enough to apply");
+  assert.equal(trip("FCO", 50, { inboundAirline: "OS" }).mct.status, "not_applicable", "one non-Lufthansa leg rules it out");
+  assert.equal(trip("JFK", 50, { inboundAirline: "LH", outboundAirline: "LH" }).mct.applicability, "applies", "Schengen to the USA");
+  assert.equal(trip("PVG", 90, { inboundAirline: "LH", outboundAirline: "LH" }).mct.status, "not_applicable", "Europe to China is not covered");
+  const avoid = trip("FCO", 50, { inboundAirline: "LH", outboundAirline: "LH" });
+  assert.equal(avoid.decision.value, "avoid");
+  assert.ok(!avoid.confidence.reasons.some((reason) => reason.code === "BELOW_PUBLISHED_MCT"), "a known MCT is not an uncertainty");
+});

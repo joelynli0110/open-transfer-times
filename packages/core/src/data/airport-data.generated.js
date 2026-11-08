@@ -300,7 +300,26 @@
             "claim": "Lufthansa moved its FRA minimum connecting time to a 60-minute standard from 30 March 2025 for intra-European to intra-European connections and Schengen connections to the USA, Singapore and South Africa, ending the earlier 45-50 minute exception.",
             "source": "lufthansa-mct-2024",
             "scope": "Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa",
-            "minimumConnectionMinutes": 60
+            "minimumConnectionMinutes": 60,
+            "appliesWhen": {
+              "operating_airline": [
+                "LH"
+              ],
+              "route_any": [
+                {
+                  "from_continent": "EU",
+                  "to_continent": "EU"
+                },
+                {
+                  "from_schengen": true,
+                  "to_country": [
+                    "US",
+                    "SG",
+                    "ZA"
+                  ]
+                }
+              ]
+            }
           },
           {
             "id": "skyline-journey",
@@ -790,65 +809,8 @@
         "SI",
         "SK"
       ],
-      "airports": [
-        "AMS",
-        "ARN",
-        "ATH",
-        "BCN",
-        "BER",
-        "BLL",
-        "BRU",
-        "BUD",
-        "CDG",
-        "CPH",
-        "DUS",
-        "FCO",
-        "FRA",
-        "GVA",
-        "HAM",
-        "HEL",
-        "KEF",
-        "LIS",
-        "LYS",
-        "MAD",
-        "MUC",
-        "MXP",
-        "NAP",
-        "NCE",
-        "OSL",
-        "PRG",
-        "RIX",
-        "STR",
-        "TLL",
-        "VCE",
-        "VIE",
-        "WAW",
-        "ZRH"
-      ],
-      "nonSchengenAirports": [
-        "ATL",
-        "BKK",
-        "BOS",
-        "DEL",
-        "DOH",
-        "DXB",
-        "EWR",
-        "HKG",
-        "HND",
-        "ICN",
-        "IST",
-        "JFK",
-        "LAX",
-        "LHR",
-        "NRT",
-        "ORD",
-        "PEK",
-        "PVG",
-        "SEA",
-        "SFO",
-        "SIN",
-        "SYD",
-        "YYZ"
+      "outsideSchengen": [
+        "LYR"
       ],
       "source": {
         "title": "Schengen",

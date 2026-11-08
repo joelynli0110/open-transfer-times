@@ -47,6 +47,22 @@ test("engine rules are derived from the dataset", () => {
   assert.equal(core.travelZone("ZZZ"), "unknown");
 });
 
+test("every catalog airport has a Schengen zone from its country", () => {
+  // Airports without a profile used to be "unknown"; the country now decides.
+  assert.equal(core.travelZone("KEF"), "schengen");
+  assert.equal(core.travelZone("LPA"), "schengen", "the Canary Islands are Spain and in Schengen");
+  assert.equal(core.travelZone("ADD"), "non-schengen");
+  assert.equal(core.travelZone("RUN"), "non-schengen", "Réunion has its own ISO code");
+  assert.equal(core.travelZone("LYR"), "non-schengen", "Svalbard is listed as outside Schengen");
+  assert.equal(core.travelZone("fra"), "schengen");
+  assert.equal(core.countryForAirport("PVG"), "CN");
+  assert.equal(core.continentForAirport("IST"), "EU");
+  const catalog = require("../src/airport-catalog.js");
+  assert.ok(Object.keys(catalog.AIRPORTS).length > 8000);
+  const unknown = Object.keys(catalog.AIRPORTS).filter((iata) => core.travelZone(iata) === "unknown");
+  assert.ok(unknown.length < 50, `${unknown.length} catalog airports have no country`);
+});
+
 test("runtime data is immutable", () => {
   const profile = core.getAirportProfile("FRA");
   assert.ok(Object.isFrozen(profile.allowances.baseTransfer));
@@ -106,11 +122,11 @@ test("validator rejects a non-https source and a file name mismatch", () => {
   assert.match(result.stderr, /iata must match the file name \(XYZ\)/);
 });
 
-test("validator rejects a profile that disagrees with the Schengen list", () => {
+test("validator requires a reason for every airport outside Schengen in a member country", () => {
   const result = withScratchDataset((scratch) => edit(scratch, "regions/schengen.yaml", (text) =>
-    text.replace(/ {4}MUC: DE\r?\n/, "")));
+    text.replace(/LYR: [^\n]*/, 'LYR: ""')));
   assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /MUC is in Schengen country DE but is not listed/);
+  assert.match(result.stderr, /outside_schengen\.LYR: give the reason/);
 });
 
 test("--check ignores CRLF line endings from a Windows checkout", () => {
@@ -145,4 +161,13 @@ test("validator requires a scope and whole minutes for a published minimum conne
     text.replace("minimum_connection_minutes: 60", "minimum_connection_minutes: 59.5")));
   assert.notEqual(fractional.status, 0);
   assert.match(fractional.stderr, /must be a positive whole number of minutes/);
+});
+
+test("validator checks the applies_when vocabulary", () => {
+  const result = withScratchDataset((scratch) => edit(scratch, "airports/FRA.yaml", (text) =>
+    text.replace("operating_airline: [LH]", "operating_airline: [Lufthansa]").replace("from_continent: EU, to_continent: EU", "from_continent: Europe, to_contnent: EU")));
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /operating_airline must be a list of two-character IATA airline codes/);
+  assert.match(result.stderr, /from_continent must be one of/);
+  assert.match(result.stderr, /unknown field "to_contnent"/);
 });

@@ -7,7 +7,7 @@
 
 const { assessConnection, minutesBetween, layoverMinutes, qualityForBuffer, DECISIONS } = require("./engine.js");
 const { createNormalizedItinerary, normalizeAirport, normalizeSegment } = require("./itinerary.js");
-const { travelZone, getAirportProfile, listAirportProfiles } = require("./airport-rules.js");
+const { travelZone, countryForAirport, continentForAirport, getAirportProfile, listAirportProfiles } = require("./airport-rules.js");
 const { nameForAirport } = require("./airport-catalog.js");
 
 module.exports = {
@@ -20,6 +20,8 @@ module.exports = {
   normalizeAirport,
   normalizeSegment,
   travelZone,
+  countryForAirport,
+  continentForAirport,
   getAirportProfile,
   listAirportProfiles,
   nameForAirport

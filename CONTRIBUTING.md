@@ -54,6 +54,11 @@ facts:
     source: heathrow-connecting
     # scope: Air France connections at Paris airports   (optional: the trips the fact applies to)
     # minimum_connection_minutes: 60   (optional, needs scope: a published minimum connection time)
+    # applies_when:                    (optional: when the engine should apply it)
+    #   operating_airline: [LH]        both flights operated by one of these airlines
+    #   route_any:                     at least one route matches
+    #     - { from_continent: EU, to_continent: EU }
+    #     - { from_schengen: true, to_country: [US, SG, ZA] }
 
 sources:
   heathrow-connecting:
@@ -80,9 +85,20 @@ step is confirmed to exist, but its duration is still an estimate".
 ### Schengen membership
 
 [`regions/schengen.yaml`](regions/schengen.yaml) lists Schengen member
-countries (with a source) and which airports the engine classifies as Schengen
-or non-Schengen. An airport with its own profile must also appear in that list
-with a matching country; the build checks this.
+countries (with a source). Every airport is classified by its country from the
+airport catalog (OurAirports); `outside_schengen` lists the exceptions inside
+member countries, each with a reason (Svalbard). Regenerate the catalog with
+`npm run airports:catalog` after downloading OurAirports' `airports.csv` to
+`data/public/`.
+
+### Conditions (`applies_when`)
+
+`applies_when` makes a fact machine-checkable. Each condition is evaluated as
+applies, does not apply, or unknown (for example when the user did not say
+which airline operates a flight); unknown is never treated as a pass. Today it
+is used for minimum connection times. Continents follow OurAirports' codes
+(`EU` includes Istanbul and Moscow), so say in a comment when that differs
+from the source's wording.
 
 ## Workflow
 

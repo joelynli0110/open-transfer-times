@@ -1,11 +1,12 @@
 # Schengen membership used to decide whether a transfer crosses the Schengen
 # border (and therefore needs passport control).
 #
-# countries: authoritative membership list, by ISO 3166-1 alpha-2 code.
-# airports:  IATA codes the engine currently classifies. Until the airport
-#            catalog carries a country for every airport, the engine can only
-#            classify airports listed here; everything else is "unknown".
-#            Each airport below must belong to one of the listed countries.
+# countries: authoritative membership list, by ISO 3166-1 alpha-2 code. Every
+#            airport is classified by its country in the airport catalog
+#            (OurAirports), so all ~9,000 airports are covered.
+# outside_schengen: airports in a member country that are nonetheless outside
+#            the Schengen area. Overseas territories with their own ISO code
+#            (RE, GP, FO, GL, …) need no entry: their code is not a member.
 
 countries:
   AT: Austria
@@ -45,62 +46,5 @@ source:
   note: Page lists 29 Schengen member states (last modified 12.10.2025). Cyprus and Ireland are EU members outside Schengen.
   retrieved: 2026-10-29
 
-airports:
-  schengen:
-    AMS: NL
-    ARN: SE
-    ATH: GR
-    BCN: ES
-    BER: DE
-    BLL: DK
-    BRU: BE
-    BUD: HU
-    CDG: FR
-    CPH: DK
-    DUS: DE
-    FCO: IT
-    FRA: DE
-    GVA: CH
-    HAM: DE
-    HEL: FI
-    KEF: IS
-    LIS: PT
-    LYS: FR
-    MAD: ES
-    MUC: DE
-    MXP: IT
-    NAP: IT
-    NCE: FR
-    OSL: "NO"
-    PRG: CZ
-    RIX: LV
-    STR: DE
-    TLL: EE
-    VCE: IT
-    VIE: AT
-    WAW: PL
-    ZRH: CH
-  non_schengen:
-    - ATL
-    - BKK
-    - BOS
-    - DEL
-    - DOH
-    - DXB
-    - EWR
-    - HKG
-    - HND
-    - ICN
-    - IST
-    - JFK
-    - LAX
-    - LHR
-    - NRT
-    - ORD
-    - PEK
-    - PVG
-    - SEA
-    - SIN
-    - SFO
-    - SYD
-    - YYZ
+outside_schengen:
+  LYR: Svalbard (Norway) is outside the Schengen area.

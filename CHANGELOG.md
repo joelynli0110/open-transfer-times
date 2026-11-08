@@ -1,5 +1,33 @@
 # Changelog
 
+
+## 0.3.0
+
+A country for every airport, and the first conditional rules (RFC 0001).
+Results change for many connections; see below.
+
+- **Country and continent for ~9,000 airports** in the catalog (OurAirports).
+  Schengen status now comes from the country, with exceptions listed in
+  `regions/schengen.yaml` (Svalbard). Previously only 56 airports had a known
+  zone. Connections involving any other airport were "unknown zone", with low
+  confidence and passport control assumed; they now get the real zone, so
+  many results move from `insufficient_data` to `recommend` / `caution`, and
+  margins change where passport control is or is not needed.
+- **`applies_when`** on facts: `operating_airline` and `route_any`
+  (continent / country / Schengen on either end), evaluated as applies /
+  does not apply / unknown. FRA's Lufthansa MCT uses it.
+- **New inputs `inbound_airline` and `outbound_airline`** (IATA codes). With
+  them, an MCT can be decided: `mct.applicability` is `applies` /
+  `does_not_apply` / `unknown`, and `mct.status` adds `not_applicable`.
+  Below an MCT that applies is `avoid` (`BELOW_APPLICABLE_MCT`).
+- The MCT text line says whether the MCT applies and asks for the operating
+  airlines when that would settle it.
+- Eval: two cases on a Lufthansa connection at FRA (category `mct`).
+- Breaking for library users: `SCHENGEN_AIRPORTS` / `NON_SCHENGEN_AIRPORTS`
+  are replaced by `SCHENGEN_COUNTRIES`, `countryForAirport` and
+  `continentForAirport`; the catalog exports `AIRPORTS` ([name, country,
+  continent]) instead of `AIRPORT_NAMES`.
+
 ## 0.2.4 (open-transfer-times-mcp only)
 
 From the 0.2.3 agent evaluation (regraded): low-confidence questions fell from

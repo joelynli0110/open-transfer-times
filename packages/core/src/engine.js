@@ -222,7 +222,14 @@
     // Published minimum connection times (MCT) are a separate question from the structural estimate: whether an
     // airline would sell this connection, not whether the transfer steps fit. Whether a scoped MCT applies to this
     // trip (airline, route type) is not known here, so a layover below one is never treated as a pass.
-    const mct = minimumConnectionCheck(airportProfile, layoverMinutes);
+    const mct = minimumConnectionCheck(airportProfile, layoverMinutes, {
+      origin: inbound.origin,
+      destination: outbound.destination,
+      inboundAirline: normalizeAirline(options.inboundAirline ?? inbound.airline),
+      outboundAirline: normalizeAirline(options.outboundAirline ?? outbound.airline)
+    });
+    const belowApplicableMct = mct.status === "below_published" && mct.applicability === "applies";
+    const belowPossibleMct = mct.status === "below_published" && mct.applicability === "unknown";
 
     const confidence = assessConfidence({
       airportProfile,
@@ -232,7 +239,7 @@
       dstAmbiguous: layover.ambiguous,
       baggageUnknown: baggageCouldChangeRating ? baggageWhatIf : null,
       terminalUnknown: terminalCouldChangeRating ? { minutes: rule.terminalChangeMinutes, bufferMinutes: structuralBufferMinutes - rule.terminalChangeMinutes, quality: qualityForBuffer(structuralBufferMinutes - rule.terminalChangeMinutes) } : null,
-      belowPublishedMct: mct.status === "below_published"
+      belowPublishedMct: belowPossibleMct
     });
 
     return {
@@ -251,7 +258,7 @@
       ticketProtection,
       verdict: verdictFor(quality, ticketStatus),
       confidence,
-      decision: decide({ quality, confidence, ticketStatus, belowPublishedMct: mct.status === "below_published", terminalUnknown: terminalCouldChangeRating }),
+      decision: decide({ quality, confidence, ticketStatus, belowPublishedMct: belowPossibleMct, belowApplicableMct, terminalUnknown: terminalCouldChangeRating }),
       terminalChange: terminalChangeState,
       possibleSteps,
       ...(worstCase ? { worstCase } : {}),
@@ -329,15 +336,22 @@
     SELF_TRANSFER: "Separate tickets: a missed connection is not protected.",
     TICKET_UNKNOWN: "Ticket protection is not stated; confirm whether both flights are on one booking.",
     BELOW_PUBLISHED_MCT: "The layover is below a published minimum connection time that may apply; if it does, the airline would not sell this connection, and on separate tickets it is a strong warning.",
+    BELOW_APPLICABLE_MCT: "The layover is below the minimum connection time that applies to this connection: the airline does not consider it feasible and would not sell it on one ticket.",
     TERMINAL_UNKNOWN: "The terminals are not known, and a terminal change would leave little or no margin; ask for the terminals.",
     CLEAR: "Enough time after the transfer steps, on a protected ticket, with usable data."
   };
   const DECISIONS = ["recommend", "caution", "insufficient_data", "avoid"];
 
-  function decide({ quality, confidence, ticketStatus, belowPublishedMct, terminalUnknown }) {
+  function decide({ quality, confidence, ticketStatus, belowPublishedMct, belowApplicableMct, terminalUnknown }) {
     const reasons = [];
     let value;
-    if (quality === "risky") {
+    // Below a minimum connection time that applies to this trip (airline and route match): the airline itself does
+    // not consider the connection feasible, whatever the structural margin says.
+    if (belowApplicableMct) {
+      value = "avoid";
+      reasons.push("BELOW_APPLICABLE_MCT");
+      if (quality === "risky") reasons.push("RISKY_MARGIN");
+    } else if (quality === "risky") {
       value = "avoid";
       reasons.push("RISKY_MARGIN");
       if (confidence.level === "low") reasons.push("LOW_CONFIDENCE");
@@ -358,16 +372,64 @@
     return { value, reasons: reasons.map((code) => ({ code, explanation: DECISION_REASONS[code] })) };
   }
 
-  // status: none_published | meets_published | below_published. "meets" means at or above every published
-  // minimum, not that the airline's rules were checked.
-  function minimumConnectionCheck(airportProfile, layover) {
+  function normalizeAirline(code) {
+    const value = String(code || "").trim().toUpperCase();
+    return /^[A-Z0-9]{2}$/.test(value) ? value : undefined;
+  }
+
+  // Three-valued logic for applies_when conditions: applies, does_not_apply, unknown.
+  const AND = (values) => values.includes("does_not_apply") ? "does_not_apply" : values.every((v) => v === "applies") ? "applies" : "unknown";
+  const ANY = (values) => values.includes("applies") ? "applies" : values.every((v) => v === "does_not_apply") ? "does_not_apply" : "unknown";
+  const bool = (known, yes) => (!known ? "unknown" : yes ? "applies" : "does_not_apply");
+
+  function airlineCondition(allowed, trip) {
+    const given = [trip.inboundAirline, trip.outboundAirline].filter(Boolean);
+    if (given.some((code) => !allowed.includes(code))) return "does_not_apply";
+    return given.length === 2 ? "applies" : "unknown";
+  }
+
+  function endpointMatches(route, side, airport) {
+    const checks = [];
+    const country = rulesModule.countryForAirport(airport);
+    if (route[`${side}_country`]) checks.push(bool(Boolean(country), route[`${side}_country`].includes(country)));
+    if (route[`${side}_continent`]) {
+      const continent = rulesModule.continentForAirport(airport);
+      checks.push(bool(Boolean(continent), continent === route[`${side}_continent`]));
+    }
+    if (route[`${side}_schengen`] !== undefined) {
+      const zone = travelZone(airport);
+      checks.push(bool(zone !== "unknown", (zone === "schengen") === route[`${side}_schengen`]));
+    }
+    return AND(checks);
+  }
+
+  function applicability(appliesWhen, trip) {
+    if (!appliesWhen) return "unknown";
+    const parts = [];
+    if (appliesWhen.operating_airline) parts.push(airlineCondition(appliesWhen.operating_airline, trip));
+    if (appliesWhen.route_any) {
+      parts.push(ANY(appliesWhen.route_any.map((route) => AND([endpointMatches(route, "from", trip.origin), endpointMatches(route, "to", trip.destination)]))));
+    }
+    return AND(parts);
+  }
+
+  // status: none_published | not_applicable | meets_published | below_published.
+  // applicability says whether the relevant MCT applies to this trip: applies, unknown, does_not_apply or none.
+  // "meets" means at or above every MCT that applies or may apply, not that the airline's rules were checked.
+  function minimumConnectionCheck(airportProfile, layover, trip) {
     const published = (airportProfile?.facts || [])
       .filter((fact) => Number.isInteger(fact.minimumConnectionMinutes))
-      .map((fact) => ({ factId: fact.id, minutes: fact.minimumConnectionMinutes, scope: fact.scope }));
-    const status = !published.length
-      ? "none_published"
-      : published.some((entry) => layover < entry.minutes) ? "below_published" : "meets_published";
-    return { status, applicability: published.length ? "unknown" : "none", published };
+      .map((fact) => ({ factId: fact.id, minutes: fact.minimumConnectionMinutes, scope: fact.scope, applicability: applicability(fact.appliesWhen, trip) }));
+    if (!published.length) return { status: "none_published", applicability: "none", published };
+    const relevant = published.filter((entry) => entry.applicability !== "does_not_apply");
+    if (!relevant.length) return { status: "not_applicable", applicability: "does_not_apply", published };
+    const below = relevant.filter((entry) => layover < entry.minutes);
+    const decisive = below.length ? below : relevant;
+    return {
+      status: below.length ? "below_published" : "meets_published",
+      applicability: decisive.some((entry) => entry.applicability === "applies") ? "applies" : "unknown",
+      published
+    };
   }
 
   function layoverMinutes(arrival, departure, connectionAirport) {

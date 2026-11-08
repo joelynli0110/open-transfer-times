@@ -17,7 +17,7 @@ Ask an AI agent to compare layovers. With the MCP server connected, it gets:
 2. VIE 2 h BER–VIE–PVG: INSUFFICIENT DATA — estimate only, margin 65 min, protected itinerary, low confidence
    Why: Key information is missing, so the rating cannot be relied on. No transfer profile for this airport; generic baseline allowances were used.
 3. FRA 50 min BER–FRA–PVG: AVOID — rated risky, margin -5 min, protected itinerary, medium confidence
-   Why: The transfer steps take about as long as the layover or longer. The layover is below a published minimum connection time that may apply; if it does, the airline would not sell this connection, and on separate tickets it is a strong warning.
+   Why: The transfer steps take about as long as the layover or longer.
 Only RECOMMEND and CAUTION options may be presented as workable; for the others, say why.
 ```
 
@@ -108,10 +108,11 @@ Alongside the rating:
   do not add transfer time by themselves. When bags on separate tickets are not
   stated, the result shows what a re-check would do.
 - **Published minimum connection times**, checked separately (`mct`). Where an
-  airline publishes an MCT for the airport (Lufthansa's 60 minutes at FRA), a
-  layover below it is flagged. Whether it applies to the trip (airline, route
-  type) is reported as unknown, never as a pass, and it rules out `recommend`.
-  A structural estimate is not proof that an airline would sell a connection.
+  airline publishes an MCT for the airport (Lufthansa's 60 minutes at FRA), its
+  conditions (operating airline, route type) decide whether it applies,
+  does not apply, or is unknown. Below an MCT that applies is `avoid`; below
+  one that may apply rules out `recommend`; unknown is never a pass. A
+  structural estimate is not proof that an airline would sell a connection.
 - **Decision** (`recommend` / `caution` / `insufficient_data` / `avoid`)
   combines the above. Missing data never yields `recommend`, and comparisons
   rank by decision first.
@@ -138,13 +139,15 @@ with a sourced figure, or report a rule the format can't express: see
   sourced yet, so no result reaches `high` confidence. The only sourced minute
   value is a published airline MCT (FRA). Sourcing durations matters more than
   adding airports with estimates only.
-- **MCT applicability is not checked.** The tools take no airline, so a
-  published MCT is reported as possibly applying.
+- **MCT applicability needs the operating airlines.** Without them a
+  published MCT whose route matches is reported as possibly applying. Only
+  FRA's Lufthansa MCT is in the data so far.
 - **One stop at a time.** Itineraries with more connections are rejected; check
   each connection separately.
-- **Schengen status is known for about 56 airports.** A connection at any
-  other airport, or at a Schengen airport to or from one, is reported as low
-  confidence.
+- **Schengen status comes from each airport's country** (OurAirports, about
+  9,000 airports). Special cases inside member countries are listed in
+  `regions/schengen.yaml` (Svalbard so far); Ceuta and Melilla's extra checks
+  are not modelled.
 - **One rule set per airport.** Rules that depend on where you arrive from
   (security at AMS), on terminal pairs (NRT) or on "some cases" (MUC) are not
   modelled yet. Terminal changes and bag re-checks are already reported as

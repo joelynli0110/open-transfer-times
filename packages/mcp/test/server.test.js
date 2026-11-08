@@ -426,7 +426,8 @@ test("check_connection reports published minimum connection times apart from the
     assert.equal(below.structuredContent.mct.applicability, "unknown");
     assert.equal(below.structuredContent.mct.published[0].minutes, 60);
     assert.equal(below.structuredContent.connection_airport.facts.find((fact) => fact.id === "lufthansa-mct-60").minimum_connection_minutes, 60);
-    assert.match(below.content[0].text, /\nMCT: BELOW a published minimum: 60 min \(only for: Lufthansa-operated[^)]*\)\. Whether it applies to this trip is unknown\./);
+    assert.match(below.content[0].text, /\nMCT: BELOW a published minimum that may apply: 60 min \(Lufthansa-operated[^)]*\)\. Whether it applies is unknown \(it depends on the operating airlines; ask which airline operates each flight\)/);
+    assert.equal(below.structuredContent.mct.published[0].applicability, "unknown");
 
     const none = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "LHR", to: "PVG", layover_minutes: 90, ticket: "protected" } });
     assert.equal(none.structuredContent.mct.status, "none_published");
@@ -469,6 +470,39 @@ test("insufficient-data text gives no margin, and separate tickets always carry 
 
     const separate = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG", layover_minutes: 75, ticket: "separate", baggage_recheck: true } });
     assert.match(separate.content[0].text, /\nTicket: separate tickets \(self-transfer\)\. Tell the user: if the first flight is late and the connection is missed, the second airline does not have to rebook or refund\./);
+  } finally {
+    await close();
+  }
+});
+
+test("operating airlines decide whether a published MCT applies", async () => {
+  const { client, close } = await connect();
+  try {
+    const call = async (extra) => (await client.callTool({ name: "check_connection", arguments: {
+      from: "BER", via: "FRA", to: "FCO", layover_minutes: 50, ticket: "protected", terminal_change: false, ...extra } }));
+    const lufthansa = await call({ inbound_airline: "lh", outbound_airline: "LH" });
+    assert.equal(lufthansa.structuredContent.mct.status, "below_published");
+    assert.equal(lufthansa.structuredContent.mct.applicability, "applies");
+    assert.equal(lufthansa.structuredContent.decision.value, "avoid");
+    assert.equal(lufthansa.structuredContent.decision.reasons[0].code, "BELOW_APPLICABLE_MCT");
+    assert.match(lufthansa.content[0].text, /\nMCT: BELOW the minimum connection time that applies to this trip: 60 min .*Tell the user: the airline does not consider this connection feasible/);
+
+    const otherAirline = await call({ inbound_airline: "LH", outbound_airline: "UA" });
+    assert.equal(otherAirline.structuredContent.mct.status, "not_applicable");
+    assert.notEqual(otherAirline.structuredContent.decision.value, "avoid");
+    assert.match(otherAirline.content[0].text, /\nMCT: the published minimum here does not apply to this trip/);
+
+    // The route alone can rule it out: Berlin–Shanghai is neither intra-European nor Schengen to US/SG/ZA.
+    const shanghai = await call({ to: "PVG", layover_minutes: 90 });
+    assert.equal(shanghai.structuredContent.mct.status, "not_applicable");
+
+    const met = await call({ inbound_airline: "LH", outbound_airline: "LH", layover_minutes: 70 });
+    assert.equal(met.structuredContent.mct.status, "meets_published");
+    assert.equal(met.structuredContent.mct.applicability, "applies");
+    assert.match(met.content[0].text, /\nMCT: meets the minimum connection time that applies to this trip: 60 min/);
+
+    const invalid = await call({ inbound_airline: "Lufthansa" });
+    assert.ok(invalid.isError);
   } finally {
     await close();
   }

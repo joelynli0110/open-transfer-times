@@ -21,7 +21,7 @@ const checkOnly = process.argv.includes("--check");
 const ALLOWANCE_KEYS = ["base_transfer", "passport_control", "terminal_change", "security_rescreening"];
 const BASES = ["heuristic", "sourced"];
 const AIRPORT_KEYS = ["iata", "name", "country", "timezone", "last_reviewed", "allowances", "facts", "sources"];
-const FACT_KEYS = ["id", "claim", "source", "scope", "minimum_connection_minutes"];
+const FACT_KEYS = ["id", "claim", "source", "scope", "minimum_connection_minutes", "applies_when"];
 const SOURCE_KEYS = ["title", "publisher", "url", "retrieved", "published", "note"];
 const ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const MAX_ALLOWANCE_MINUTES = 240;
@@ -118,6 +118,7 @@ function validateFacts(file, facts, sources) {
       // A published minimum connection time always belongs to some airline or route type.
       if (!fact.scope) fail(file, `${where}.minimum_connection_minutes needs a scope: whose minimum connection time is it?`);
     }
+    if (fact.applies_when !== undefined) validateAppliesWhen(file, `${where}.applies_when`, fact.applies_when);
   });
   for (const id of Object.keys(sources)) {
     if (!facts.some((fact) => fact && fact.source === id)) fail(file, `sources.${id} is not used by any fact`);
@@ -198,7 +199,8 @@ function validateAirport(file, data, expectedIata) {
       claim: fact.claim.trim(),
       source: fact.source,
       ...(fact.scope ? { scope: fact.scope } : {}),
-      ...(fact.minimum_connection_minutes ? { minimumConnectionMinutes: fact.minimum_connection_minutes } : {})
+      ...(fact.minimum_connection_minutes ? { minimumConnectionMinutes: fact.minimum_connection_minutes } : {}),
+      ...(fact.applies_when ? { appliesWhen: fact.applies_when } : {})
     })),
     sources,
     coverage: coverageFor(allowances, facts)
@@ -212,12 +214,51 @@ function coverageFor(allowances, facts) {
   return "heuristic";
 }
 
+// Machine-readable conditions for when a fact applies (RFC 0001, applies_when). Kept deliberately small:
+//   operating_airline: [LH]          both flights operated by one of these airlines (IATA codes)
+//   route_any:                       at least one route pattern matches
+//     - { from_continent: EU, to_continent: EU }
+//     - { from_schengen: true, to_country: [US, SG, ZA] }
+const CONTINENTS = new Set(["AF", "AN", "AS", "EU", "NA", "OC", "SA"]);
+const ROUTE_KEYS = ["from_continent", "to_continent", "from_country", "to_country", "from_schengen", "to_schengen"];
+
+function validateAppliesWhen(file, where, value) {
+  if (!isPlainObject(value)) return fail(file, `${where} must be a mapping`);
+  checkKeys(file, where, value, ["operating_airline", "route_any"]);
+  if (!Object.keys(value).length) fail(file, `${where} needs at least one condition`);
+  if (value.operating_airline !== undefined) {
+    if (!Array.isArray(value.operating_airline) || !value.operating_airline.length
+      || value.operating_airline.some((code) => !/^[A-Z0-9]{2}$/.test(String(code)))) {
+      fail(file, `${where}.operating_airline must be a list of two-character IATA airline codes`);
+    }
+  }
+  if (value.route_any !== undefined) {
+    if (!Array.isArray(value.route_any) || !value.route_any.length) return fail(file, `${where}.route_any must be a non-empty list`);
+    value.route_any.forEach((route, index) => {
+      const at = `${where}.route_any[${index}]`;
+      if (!isPlainObject(route) || !Object.keys(route).length) return fail(file, `${at} must be a non-empty mapping`);
+      checkKeys(file, at, route, ROUTE_KEYS);
+      for (const key of ["from_continent", "to_continent"]) {
+        if (route[key] !== undefined && !CONTINENTS.has(route[key])) fail(file, `${at}.${key} must be one of ${[...CONTINENTS].join(", ")}`);
+      }
+      for (const key of ["from_country", "to_country"]) {
+        if (route[key] !== undefined && (!Array.isArray(route[key]) || route[key].some((code) => !/^[A-Z]{2}$/.test(String(code))))) {
+          fail(file, `${at}.${key} must be a list of ISO 3166-1 alpha-2 codes`);
+        }
+      }
+      for (const key of ["from_schengen", "to_schengen"]) {
+        if (route[key] !== undefined && typeof route[key] !== "boolean") fail(file, `${at}.${key} must be true or false`);
+      }
+    });
+  }
+}
+
 function validateSchengen(file, data, profiles) {
   if (!isPlainObject(data)) {
     fail(file, "file must contain a mapping");
     return null;
   }
-  checkKeys(file, "root", data, ["countries", "source", "airports"]);
+  checkKeys(file, "root", data, ["countries", "source", "outside_schengen"]);
   const countries = isPlainObject(data.countries) ? data.countries : {};
   if (!isPlainObject(data.countries)) fail(file, "countries must be a mapping of ISO code → name");
   for (const code of Object.keys(countries)) {
@@ -227,35 +268,17 @@ function validateSchengen(file, data, profiles) {
   else {
     validateSources(file, { "schengen-source": data.source });
   }
-  const schengen = isPlainObject(data.airports?.schengen) ? data.airports.schengen : {};
-  const nonSchengen = Array.isArray(data.airports?.non_schengen) ? data.airports.non_schengen : [];
-  if (!isPlainObject(data.airports?.schengen)) fail(file, "airports.schengen must be a mapping of IATA → country");
-  if (!Array.isArray(data.airports?.non_schengen)) fail(file, "airports.non_schengen must be a list");
-  for (const [iata, country] of Object.entries(schengen)) {
-    if (!/^[A-Z]{3}$/.test(iata)) fail(file, `airports.schengen.${iata}: not an IATA code`);
-    if (!Object.hasOwn(countries, country)) fail(file, `airports.schengen.${iata}: country ${country} is not a Schengen member`);
+  const outside = isPlainObject(data.outside_schengen) ? data.outside_schengen : {};
+  if (data.outside_schengen !== undefined && !isPlainObject(data.outside_schengen)) {
+    fail(file, "outside_schengen must be a mapping of IATA → reason");
   }
-  const seen = new Set();
-  for (const iata of nonSchengen) {
-    if (!/^[A-Z]{3}$/.test(iata || "")) fail(file, `airports.non_schengen: "${iata}" is not an IATA code`);
-    if (seen.has(iata)) fail(file, `airports.non_schengen: ${iata} is duplicated`);
-    if (Object.hasOwn(schengen, iata)) fail(file, `${iata} is listed as both Schengen and non-Schengen`);
-    seen.add(iata);
-  }
-  // Each airport profile must agree with the Schengen classification.
-  for (const profile of Object.values(profiles)) {
-    const inSchengenCountry = Object.hasOwn(countries, profile.country);
-    if (inSchengenCountry && schengen[profile.iata] !== profile.country) {
-      fail(file, `${profile.iata} is in Schengen country ${profile.country} but is not listed under airports.schengen with that country`);
-    }
-    if (!inSchengenCountry && !seen.has(profile.iata)) {
-      fail(file, `${profile.iata} (${profile.country}) has a profile but is not listed under airports.non_schengen`);
-    }
+  for (const [iata, reason] of Object.entries(outside)) {
+    if (!/^[A-Z]{3}$/.test(iata)) fail(file, `outside_schengen.${iata}: not an IATA code`);
+    if (typeof reason !== "string" || !reason.trim()) fail(file, `outside_schengen.${iata}: give the reason`);
   }
   return {
     countries: Object.keys(countries).sort(),
-    schengenAirports: Object.keys(schengen).sort(),
-    nonSchengenAirports: [...nonSchengen].sort(),
+    outsideSchengen: Object.keys(outside).sort(),
     source: data.source
   };
 }
@@ -291,8 +314,7 @@ function renderModule({ profiles, baseline, regions }) {
     airports: profiles,
     schengen: {
       countries: regions.countries,
-      airports: regions.schengenAirports,
-      nonSchengenAirports: regions.nonSchengenAirports,
+      outsideSchengen: regions.outsideSchengen,
       source: regions.source
     }
   };

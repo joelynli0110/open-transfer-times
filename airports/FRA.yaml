@@ -31,6 +31,12 @@ facts:
     source: lufthansa-mct-2024
     scope: Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa
     minimum_connection_minutes: 60
+    # "Intra-European" uses OurAirports' continent EU (which includes Istanbul and Moscow).
+    applies_when:
+      operating_airline: [LH]
+      route_any:
+        - { from_continent: EU, to_continent: EU }
+        - { from_schengen: true, to_country: [US, SG, ZA] }
 
   - id: skyline-journey
     claim: >-

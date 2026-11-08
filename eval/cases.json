@@ -712,6 +712,43 @@
           "asks_about_baggage"
         ]
       }
+    },
+    {
+      "id": "mct-lh-fra-en",
+      "category": "mct",
+      "prompt": "I fly Lufthansa from Berlin to Rome via Frankfurt, both flights on one Lufthansa ticket. I land in Frankfurt at 09:40 and the Rome flight leaves at 10:30. Will that work?",
+      "expect": {
+        "calls": [
+          {
+            "tool": "check_connection",
+            "leg": {
+              "via": "FRA",
+              "to": "FCO",
+              "inbound_airline": "LH",
+              "outbound_airline": "LH"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "mct-lh-fra-zh",
+      "category": "mct",
+      "prompt": "我坐汉莎从柏林经法兰克福飞罗马，同一张票，两段都是汉莎执飞，在法兰克福转机 50 分钟，够吗？",
+      "expect": {
+        "calls": [
+          {
+            "tool": "check_connection",
+            "leg": {
+              "via": "FRA",
+              "to": "FCO",
+              "layover_minutes": 50,
+              "inbound_airline": "LH",
+              "outbound_airline": "LH"
+            }
+          }
+        ]
+      }
     }
   ]
 }

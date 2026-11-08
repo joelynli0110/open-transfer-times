@@ -32,8 +32,9 @@ All tools are read-only.
 | `layover_minutes` | one of | `90` | Use instead of the two times when only the layover length is known. |
 | `ticket` | no | `protected` | `protected` (one booking), `separate` (self-transfer), `unknown` (default). |
 | `arrival_terminal`, `departure_terminal` | no | `2`, `5` | A terminal change is detected when both are given and differ. |
-| `terminal_change` | no | `true` | Use when a change is known but terminals are not. |
+| `terminal_change` | no | `true` | `true`: a change is known; `false`: known not to change. Omit if unknown: a possible terminal change then makes the margin a range. |
 | `baggage_recheck` | no | `false` | `true`: bags must be collected and checked in again. `false`: hand luggage only, or checked through. Omit only if unknown; on separate tickets the result then shows whether it matters. |
+| `inbound_airline`, `outbound_airline` | no | `LH`, `LH` | IATA codes of the airlines operating each flight. Decide whether an airline's minimum connection time applies; omit if unknown. |
 
 Give either both times or `layover_minutes`. If both are given they must agree.
 
@@ -78,10 +79,11 @@ Bags: not stated. If they must be collected and checked in again, the margin is 
   as "comfortable". All numbers stay in `structuredContent`.
 - On separate tickets the text always says that a missed connection is not
   rebooked or refunded by the second airline.
-- `mct` is kept apart from the structural rating. `below_published` means the
-  layover is under an airline's published minimum connection time at this
-  airport (e.g. Lufthansa, 60 min at FRA); whether it applies to the trip is
-  `unknown`, so it is never treated as a pass.
+- `mct` is kept apart from the structural rating. `status` is
+  `none_published`, `not_applicable`, `meets_published` or `below_published`;
+  `applicability` says whether the relevant MCT `applies`, is `unknown`
+  (e.g. operating airlines not given) or `does_not_apply`. Below an MCT that
+  applies is `avoid`; below one that may apply is never treated as a pass.
 - `decision` is the field to act on. `insufficient_data` means key information
   is missing (the confidence reasons say what): ask the user rather than
   recommending the connection.

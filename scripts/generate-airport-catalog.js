@@ -33,7 +33,12 @@ for (const line of lines) {
   const row = parseCsvLine(line);
   const iata = row[column.iata_code];
   const name = row[column.name];
-  if (/^[A-Z]{3}$/.test(iata || "") && name && !catalog[iata]) catalog[iata] = name;
+  const country = row[column.iso_country];
+  const continent = row[column.continent];
+  if (/^[A-Z]{3}$/.test(iata || "") && name && !catalog[iata]) {
+    // [name, ISO 3166-1 country, OurAirports continent code (EU, AS, NA, SA, AF, OC, AN)]
+    catalog[iata] = [name, /^[A-Z]{2}$/.test(country) ? country : "", /^[A-Z]{2}$/.test(continent) ? continent : ""];
+  }
 }
 
 const source = `(function exposeAirportCatalog(root, factory) {\n` +
@@ -43,11 +48,15 @@ const source = `(function exposeAirportCatalog(root, factory) {\n` +
   `})(typeof globalThis !== "undefined" ? globalThis : this, function createAirportCatalog() {\n` +
   `  "use strict";\n` +
   `  // Generated from the public-domain OurAirports airports.csv dataset.\n` +
-  `  const AIRPORT_NAMES = Object.freeze(${JSON.stringify(catalog)});\n` +
-  `  function nameForAirport(iata) { return AIRPORT_NAMES[String(iata || "").toUpperCase()]; }\n` +
-  `  return { AIRPORT_NAMES, nameForAirport };\n` +
+  `  // Each entry: [name, ISO 3166-1 alpha-2 country, continent code].\n` +
+  `  const AIRPORTS = Object.freeze(${JSON.stringify(catalog)});\n` +
+  `  const entry = (iata) => AIRPORTS[String(iata || "").toUpperCase()];\n` +
+  `  function nameForAirport(iata) { return entry(iata)?.[0]; }\n` +
+  `  function countryForAirport(iata) { return entry(iata)?.[1] || undefined; }\n` +
+  `  function continentForAirport(iata) { return entry(iata)?.[2] || undefined; }\n` +
+  `  return { AIRPORTS, nameForAirport, countryForAirport, continentForAirport };\n` +
   `});\n`;
 
 fs.mkdirSync(path.dirname(output), { recursive: true });
 fs.writeFileSync(output, source, "utf8");
-console.log(`Generated ${Object.keys(catalog).length} airport names in ${output}`);
+console.log(`Generated ${Object.keys(catalog).length} airports (name, country, continent) in ${output}`);

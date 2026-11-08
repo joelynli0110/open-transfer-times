@@ -1,6 +1,6 @@
 # RFC 0001: Context-dependent transfer rules (v0.2)
 
-- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0–0.2.3; Q1 and Q4 decided, see below.
+- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0–0.3.0; Q1 and Q4 decided, see below.
 - Target release: 0.3.0
 - Discussion: [issue #6](https://github.com/joelynli0110/open-transfer-times/issues/6)
 
@@ -19,6 +19,17 @@ rest of this RFC:
 - **Bags on separate tickets as required / not required / unknown**, with the
   result of a re-check reported when it would matter. This is the first part of
   §4; entry and exit border steps are still open.
+
+## Shipped in 0.3.0
+
+- **§1 A country for every airport.** The catalog carries country and continent
+  from OurAirports for about 9,000 airports; Schengen status comes from the
+  country (with listed exceptions), so "unknown zone" is now rare.
+- **`applies_when`, first use: minimum connection times.** A small vocabulary
+  (`operating_airline`, `route_any` with continent / country / Schengen on
+  either end), evaluated as applies / does not apply / unknown. New optional
+  inputs `inbound_airline` and `outbound_airline` let an MCT be decided.
+  Transfer *steps* with conditions (AMS, NRT, MUC, IST self-transfer) are next.
 
 ## Decided in the discussion (#6), shipped in 0.2.2 and 0.2.3
 
