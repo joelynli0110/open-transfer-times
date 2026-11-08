@@ -159,6 +159,41 @@ passes the results to `compare_connections`.
 - Clock changes are handled at the 13 profiled airports; elsewhere pass times
   with UTC offsets for exact layovers.
 
+## Writing result text for agents
+
+Agents mostly read the text result, not `structuredContent`, and they repeat
+it to the user. Four text changes were measured with the [agent
+evaluation](../../eval) (0.2.1 to 0.2.4); these rules come from what moved
+the numbers. Check them before changing any result text.
+
+1. **The decision comes first.** Agents repeat the first verdict they read.
+   When the first line said `TIGHT` or `COMFORTABLE`, connections with missing
+   data were called fine.
+2. **No reassuring words or numbers where the decision does not support
+   them.** With `insufficient_data` or `avoid`, the text has no rating word
+   ("comfortable", "healthy margin") and no margin. Twice a reassuring word
+   slipped back in (the rating line in 0.2.0, the margin range in 0.2.3), and
+   both times agents repeated it as reassurance. Removing it lifted
+   low-confidence questions from 7% to 60% (0.2.1) and back from 33% to 60%
+   (0.2.4).
+3. **A warning the user must hear is its own line, phrased as an
+   instruction** ("Tell the user: …"). A caveat inside a longer sentence is
+   dropped once the text grows: the self-transfer warning went from 53% to 93%
+   when it got its own line.
+4. **Trim the text, not the data.** Everything removed from the text stays in
+   `structuredContent`.
+5. **Wording outside the result does little.** Rewording the server
+   instructions and tool descriptions did not move these numbers; changing the
+   result text did.
+6. **Every new field must reach the eval judge** (`summarizeCall` in
+   `eval/src/judge.js`). Otherwise correct answers that cite it are graded as
+   invented, as happened with `possible_steps` and `worst_case` in 0.2.3.
+
+Before releasing a text change: run the evaluation with the same agent, judge
+and `--repeat 3`, compare against the last release, and read the failed
+answers (`npm run eval:failures -- <run.json> <check>`) rather than only the
+totals.
+
 ## Development
 
 ```bash

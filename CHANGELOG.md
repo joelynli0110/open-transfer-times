@@ -23,6 +23,11 @@ separate-ticket protection warning was dropped.
   (numbers_match fell from 98% to 74% between 0.2.1 and 0.2.3).
 - Eval: `npm run eval:rejudge` regrades stored answers with the current judge,
   without running the agent again; `--errors-only` retries only failed gradings.
+- Eval: `npm run eval:failures` lists failed checks with the judge's reasons.
+- MCP README: "Writing result text for agents", the rules learned from the
+  0.2.1–0.2.4 evaluations.
+- FRA: cites Fraport's SkyLine journey time for the terminal-change step; no
+  official source for the step durations was found (#5).
 - Eval: OpenAI-compatible providers retry HTTP 429 and 503 with backoff
   (honouring Retry-After), and `eval:compare` warns when judge errors are
   counted as failures.

@@ -15,7 +15,7 @@ Help wanted: add official sources for airports marked `heuristic`, confirm more 
 | CDG | Paris Charles de Gaulle | partial | 0/4 | 0/4 | 2 | 1 | 2026-10-29 |
 | DOH | Doha Hamad | partial | 0/4 | 3/4 | 4 | 1 | 2026-10-29 |
 | DXB | Dubai | partial | 0/4 | 0/4 | 2 | 1 | 2026-10-29 |
-| FRA | Frankfurt | partial | 0/4 | 0/4 | 1 | 1 | 2026-10-29 |
+| FRA | Frankfurt | partial | 0/4 | 1/4 | 2 | 2 | 2026-11-09 |
 | HKG | Hong Kong | partial | 0/4 | 1/4 | 1 | 1 | 2026-10-29 |
 | HND | Tokyo Haneda | partial | 0/4 | 2/4 | 2 | 1 | 2026-10-29 |
 | ICN | Seoul Incheon | partial | 0/4 | 1/4 | 1 | 1 | 2026-10-29 |

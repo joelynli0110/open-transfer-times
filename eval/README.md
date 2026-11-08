@@ -49,6 +49,16 @@ lists all options.
 Results are written to `eval/results/` (git-ignored) as a markdown report and
 the full JSON transcripts. The JSON is saved after every case.
 
+### Reading failures
+
+```bash
+npm run eval:failures -- eval/results/<run>.json [check ...]
+```
+
+lists each failed check with the judge's reason, the tools called and the start
+of the answer. Read these before changing the server: totals show that
+something moved, failures show why.
+
 ### Regrading stored answers
 
 After a change to the rubric or to what the judge sees, regrade earlier runs

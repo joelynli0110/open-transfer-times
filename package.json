@@ -19,7 +19,8 @@
     "smoke": "node scripts/smoke-test-packages.js",
     "eval": "node eval/src/run.js",
     "eval:compare": "node eval/src/compare.js",
-    "eval:rejudge": "node eval/src/rejudge.js"
+    "eval:rejudge": "node eval/src/rejudge.js",
+    "eval:failures": "node eval/src/failures.js"
   },
   "engines": {
     "node": ">=20"

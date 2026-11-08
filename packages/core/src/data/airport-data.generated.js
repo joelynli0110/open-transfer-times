@@ -269,7 +269,7 @@
         "name": "Frankfurt",
         "country": "DE",
         "timezone": "Europe/Berlin",
-        "lastReviewed": "2026-10-29",
+        "lastReviewed": "2026-11-09",
         "allowances": {
           "baseTransfer": {
             "minutes": 35,
@@ -284,7 +284,9 @@
           "terminalChange": {
             "minutes": 15,
             "basis": "heuristic",
-            "facts": []
+            "facts": [
+              "skyline-journey"
+            ]
           },
           "securityRescreening": {
             "minutes": 0,
@@ -299,6 +301,11 @@
             "source": "lufthansa-mct-2024",
             "scope": "Lufthansa-operated intra-European connections and Schengen connections to the USA, Singapore and South Africa",
             "minimumConnectionMinutes": 60
+          },
+          {
+            "id": "skyline-journey",
+            "claim": "The SkyLine train from the Terminal 1 parking garage to Terminal 3 takes about eight minutes.",
+            "source": "fraport-skyline"
           }
         ],
         "sources": {
@@ -308,6 +315,12 @@
             "url": "https://irreg.lufthansaexperts.com/en/news/frankfurt-airport-increase-of-the-minimum-connecting-time-mct-to-60-minutes.html",
             "published": "2024-09-10",
             "retrieved": "2026-10-29"
+          },
+          "fraport-skyline": {
+            "title": "Transfer parking area - terminal - parking area",
+            "publisher": "Fraport AG",
+            "url": "https://www.frankfurt-airport.com/en/transport-and-parking/tips-information/transfer-parking-area-terminal.html",
+            "retrieved": "2026-11-09"
           }
         },
         "coverage": "partial"
