@@ -248,7 +248,10 @@ async function main() {
     save("partial", usage);
     console.error(`\nStopped: ${stoppedEarly}`);
     console.error(`Fix the connection, then continue with:\n  npm run eval -- <same options> --resume ${path.relative(process.cwd(), jsonPath)}`);
-    process.exit(1);
+    // Not process.exit(): on Windows, exiting while the MCP server's pipes are still closing can crash Node
+    // (libuv assertion in src\\win\\async.c, exit code 3221226505). Let the event loop drain instead.
+    process.exitCode = 1;
+    return;
   }
   const results = save("complete", usage);
   const report = buildReport({ results, meta: meta("complete", usage) });
@@ -261,7 +264,7 @@ async function main() {
 if (require.main === module) {
   main().catch((error) => {
     console.error(error);
-    process.exit(1);
+    process.exitCode = 1;
   });
 }
 

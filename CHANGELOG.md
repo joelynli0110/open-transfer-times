@@ -23,6 +23,9 @@ Results change for many connections; see below.
 - The MCT text line says whether the MCT applies and asks for the operating
   airlines when that would settle it.
 - Eval: two cases on a Lufthansa connection at FRA (category `mct`).
+- Eval: a run that stops early sets the exit code instead of calling
+  `process.exit()`, which could crash Node on Windows while the MCP server
+  was still shutting down (exit code 3221226505).
 - Breaking for library users: `SCHENGEN_AIRPORTS` / `NON_SCHENGEN_AIRPORTS`
   are replaced by `SCHENGEN_COUNTRIES`, `countryForAirport` and
   `continentForAirport`; the catalog exports `AIRPORTS` ([name, country,
