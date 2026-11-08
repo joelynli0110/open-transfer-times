@@ -65,7 +65,7 @@ test("check_connection matches the core engine and cites airport facts", async (
     assert.deepEqual(data.worst_case, { buffer_minutes: 10, quality: "tight" });
     assert.equal(data.decision.value, "caution");
     assert.match(result.content[0].text, /^BER–LHR–PVG: CAUTION — The terminals are not known.*\nRating: REASONABLE — /);
-    assert.match(result.content[0].text, /margin 10 to 35 min \(10 min if every possible step applies: tight\)\./);
+    assert.match(result.content[0].text, /margin 10 to 35 min \(tight if every possible step applies\)\./);
     assert.match(result.content[0].text, /\nComparing several options\? Send them together to compare_connections/);
   } finally {
     await close();
@@ -453,6 +453,22 @@ test("terminal change is required, not required or unknown, and unknown is never
     // A single-terminal airport has nothing to ask about.
     const doha = await call({ via: "DOH" });
     assert.equal(doha.terminal_change, "not_required");
+  } finally {
+    await close();
+  }
+});
+
+test("insufficient-data text gives no margin, and separate tickets always carry the protection warning", async () => {
+  const { client, close } = await connect();
+  try {
+    const bkk = await client.callTool({ name: "check_connection", arguments: { from: "SIN", via: "BKK", to: "HND", layover_minutes: 180 } });
+    assert.equal(bkk.structuredContent.decision.value, "insufficient_data");
+    assert.match(bkk.content[0].text, /\nRough estimate only: layover 180 min, generic transfer steps 35 min, plus possibly 15 min \(change terminals\)\. No margin is given/);
+    assert.doesNotMatch(bkk.content[0].text, /margin \d|comfortable\)|Give the margin as a range/);
+    assert.equal(bkk.structuredContent.buffer_minutes, 145, "the structured result keeps the numbers");
+
+    const separate = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG", layover_minutes: 75, ticket: "separate", baggage_recheck: true } });
+    assert.match(separate.content[0].text, /\nTicket: separate tickets \(self-transfer\)\. Tell the user: if the first flight is late and the connection is missed, the second airline does not have to rebook or refund\./);
   } finally {
     await close();
   }

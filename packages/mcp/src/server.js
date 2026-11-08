@@ -303,16 +303,24 @@ function summarize(assessment) {
       ? "Confidence: LOW, for the reasons above."
       : `Confidence: ${assessment.confidence.level.toUpperCase()} — ${confidenceReasons}${assessment.confidence.level === "low"
         ? " Tell the user this estimate is less reliable and why." : ""}`,
-    `${insufficient ? "Rough estimate only: layover" : "Layover"} ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
-      ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.worst_case
-      ? `${assessment.worst_case.buffer_minutes} to ${assessment.buffer_minutes} min (${assessment.worst_case.buffer_minutes} min if every possible step applies: ${assessment.worst_case.quality})`
-      : `${assessment.buffer_minutes} min`}.`,
+    // With insufficient data no margin is shown: agents turned a large rough margin into "comfortable" (0.2.3 eval).
+    insufficient
+      ? `Rough estimate only: layover ${assessment.layover_minutes} min, generic transfer steps ${assessment.transfer_process_minutes} min${possibleMinutes(assessment)}. No margin is given because the data cannot support one.`
+      : `Layover ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
+        ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.worst_case
+        ? `${assessment.worst_case.buffer_minutes} to ${assessment.buffer_minutes} min${["tight", "risky"].includes(assessment.worst_case.quality)
+          ? ` (${assessment.worst_case.quality} if every possible step applies)` : ""}`
+        : `${assessment.buffer_minutes} min`}.`,
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
-    ...(assessment.possible_steps.some((step) => step.code === "TERMINAL_CHANGE")
+    ...(!insufficient && assessment.possible_steps.some((step) => step.code === "TERMINAL_CHANGE")
       ? [`Possible step not counted: Change terminals ${assessment.possible_steps.find((step) => step.code === "TERMINAL_CHANGE").minutes} min (terminals not given). Give the margin as a range and ask for the terminals if it matters.`]
       : []),
     ...(insufficient ? [] : [`Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`]),
-    `Ticket: ${assessment.ticket.label}.`,
+    // Separate tickets: state the protection gap as its own instruction; with more numbers in the text, agents
+    // dropped it (self_transfer_risk fell in the 0.2.3 eval).
+    assessment.ticket.status === "separate"
+      ? "Ticket: separate tickets (self-transfer). Tell the user: if the first flight is late and the connection is missed, the second airline does not have to rebook or refund."
+      : `Ticket: ${assessment.ticket.label}.`,
     mctLine(assessment),
     ...(assessment.if_baggage_recheck
       ? [`Bags: not stated. If they must be collected and checked in again, the margin is ${assessment.if_baggage_recheck.buffer_minutes} min (${assessment.if_baggage_recheck.quality}). Ask the user.`]
@@ -338,6 +346,11 @@ function mctLine(assessment) {
   return status === "below_published"
     ? `MCT: BELOW a published minimum: ${list}. Whether it applies to this trip is unknown. Tell the user: if it applies, the airline would not sell this connection on one ticket, and on separate tickets it is a strong warning.`
     : `MCT: at or above the published minimum: ${list}. This does not prove the airline would sell this connection.`;
+}
+
+function possibleMinutes(assessment) {
+  const steps = assessment.possible_steps || [];
+  return steps.length ? `, plus possibly ${steps.map((step) => `${step.minutes} min (${step.label.toLowerCase()})`).join(" and ")}` : "";
 }
 
 // Decisions under which the connection may be presented as fine.

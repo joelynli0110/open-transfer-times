@@ -1,6 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.2.4 (open-transfer-times-mcp only)
+
+From the 0.2.3 agent evaluation (regraded): low-confidence questions fell from
+60% to 33% and separate-ticket questions from 67% to 40%. The failed answers
+showed why: the margin range carried a quality word ("130 min if every
+possible step applies: comfortable"), and with more numbers in the text the
+separate-ticket protection warning was dropped.
+
+- With `insufficient_data`, the text gives no margin: only the counted steps
+  and the possible ones ("plus possibly 15 min (change terminals)").
+  `structuredContent` keeps every number.
+- A margin range names the worst case only when it is tight or risky.
+- On separate tickets the text always tells the agent to say that a missed
+  connection is not rebooked or refunded by the second airline.
+
+## Eval changes since 0.2.3
 
 - Eval: the judge now sees `terminal_change`, `possible_steps`, `worst_case`
   and `mct`. Without them it graded answers that cited a possible terminal

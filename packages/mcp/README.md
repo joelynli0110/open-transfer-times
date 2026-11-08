@@ -43,7 +43,7 @@ Example result text:
 BER–LHR–PVG: CAUTION — The terminals are not known, and a terminal change would leave little or no margin; ask for the terminals.
 Rating: REASONABLE — A practical connection on one ticket.
 Confidence: MEDIUM — The terminals are not known; a terminal change would make this connection tight or risky. With a terminal change (25 min) the margin would be 10 min (tight). The transfer-step durations are rule-of-thumb estimates, not sourced figures.
-Layover 90 min, transfer steps 55 min, margin 10 to 35 min (10 min if every possible step applies: tight).
+Layover 90 min, transfer steps 55 min, margin 10 to 35 min (tight if every possible step applies).
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
 Possible step not counted: Change terminals 25 min (terminals not given). Give the margin as a range and ask for the terminals if it matters.
 Factors: Transfer through London Heathrow; Additional security screening may apply; Moderate transfer margin.
@@ -59,10 +59,12 @@ Airport facts are context, not extra steps. Apply a fact only where its scope ma
 On separate tickets with bags not stated, where a re-check would matter:
 
 ```text
-BER–IST–PVG: INSUFFICIENT DATA — Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky. With a bag re-check the margin would be -15 min (risky). The result cannot be relied on.
+BER–IST–PVG: INSUFFICIENT DATA — The terminals are not known; a terminal change would make this connection tight or risky. With a terminal change (10 min) the margin would be 20 min (tight). Separate tickets, and it is not known whether bags must be collected and checked in again; a re-check would make this connection tight or risky. With a bag re-check the margin would be -15 min (risky). The result cannot be relied on.
 Do not call this connection safe, fine or comfortable. Tell the user the estimate is unreliable, why, and what would settle it.
 Confidence: LOW, for the reasons above.
-Rough estimate only: layover 75 min, transfer steps 45 min, margin 30 min.
+Rough estimate only: layover 75 min, generic transfer steps 45 min, plus possibly 10 min (change terminals) and 45 min (collect bags and check in again). No margin is given because the data cannot support one.
+Steps counted: Move through airport 35 min (heuristic); Allow for another security check 10 min (heuristic). No other steps were counted.
+Ticket: separate tickets (self-transfer). Tell the user: if the first flight is late and the connection is missed, the second airline does not have to rebook or refund.
 ...
 Bags: not stated. If they must be collected and checked in again, the margin is -15 min (risky). Ask the user.
 ```
@@ -71,7 +73,11 @@ Bags: not stated. If they must be collected and checked in again, the margin is 
   option that is not recommended ("Why: …"). With `insufficient_data` the text
   leaves out the rating entirely: in the agent evaluation, agents repeated
   "comfortable" and "healthy margin" as reassurance even when the decision said
-  the rating could not be relied on. The rating stays in `structuredContent`.
+  the rating could not be relied on. Since 0.2.4 it also gives no margin there,
+  only the counted and possible step durations: a large rough margin was read
+  as "comfortable". All numbers stay in `structuredContent`.
+- On separate tickets the text always says that a missed connection is not
+  rebooked or refunded by the second airline.
 - `mct` is kept apart from the structural rating. `below_published` means the
   layover is under an airline's published minimum connection time at this
   airport (e.g. Lufthansa, 60 min at FRA); whether it applies to the trip is
