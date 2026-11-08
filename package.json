@@ -18,7 +18,8 @@
     "check": "npm run airports:check && npm run lint && npm test && npm run build",
     "smoke": "node scripts/smoke-test-packages.js",
     "eval": "node eval/src/run.js",
-    "eval:compare": "node eval/src/compare.js"
+    "eval:compare": "node eval/src/compare.js",
+    "eval:rejudge": "node eval/src/rejudge.js"
   },
   "engines": {
     "node": ">=20"

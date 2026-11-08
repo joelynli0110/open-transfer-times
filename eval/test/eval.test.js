@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { deterministicChecks, legMatches } = require("../src/checks.js");
-const { parseJudgeReply, buildJudgePrompt, RUBRIC } = require("../src/judge.js");
+const { parseJudgeReply, buildJudgePrompt, RUBRIC, summarizeCall, DEFAULT_ITEMS } = require("../src/judge.js");
 const { buildReport } = require("../src/report.js");
 const { evaluate, selectCases, parseArgs, systemPrompt } = require("../src/run.js");
 const { createProvider, toFunctionTool } = require("../src/providers.js");
@@ -428,4 +428,42 @@ test("an expected value may list alternatives (Shanghai: PVG or SHA)", () => {
     assert.ok(deterministicChecks(testCase, { answer: "x", stopReason: "end_turn", calls }).every((check) => check.passed));
   }
   assert.ok(!legMatches({ to: ["PVG", "SHA"] }, { to: "HND" }));
+});
+
+test("the judge sees possible steps, the worst case and published MCTs", () => {
+  const view = summarizeCall({ name: "check_connection", args: {}, isError: false, result: {
+    route: "BER–LHR–PVG", quality: "reasonable", buffer_minutes: 35, steps: [], terminal_change: "unknown",
+    possible_steps: [{ code: "TERMINAL_CHANGE", label: "Change terminals", minutes: 25, unknown: "Terminals not given" }],
+    worst_case: { buffer_minutes: 10, quality: "tight" }, mct: { status: "none_published", applicability: "none", published: [] }
+  } });
+  const assessment = view.assessments[0];
+  assert.equal(assessment.terminal_change, "unknown");
+  assert.deepEqual(assessment.possible_steps, ["Change terminals: 25 min (possible: Terminals not given)"]);
+  assert.deepEqual(assessment.worst_case, { buffer_minutes: 10, quality: "tight" });
+  assert.equal(assessment.mct.status, "none_published");
+});
+
+test("rejudge regrades stored answers without running the agent", async () => {
+  const { rejudge, parseRejudgeArgs } = require("../src/rejudge.js");
+  assert.deepEqual(parseRejudgeArgs(["run.json", "--judge-provider", "openai", "--judge-model", "m"]),
+    { file: "run.json", provider: "openai", model: "m" });
+  const testCase = cases.find((c) => c.id === "times-lhr-terminals-en");
+  const prompts = [];
+  const judge = { name: "fake:judge", async complete(prompt) {
+    prompts.push(prompt);
+    const items = (testCase.expect.judge || DEFAULT_ITEMS);
+    return JSON.stringify({ items: Object.fromEntries(items.map((id) => [id, { verdict: "pass", reason: "" }])) });
+  } };
+  const data = { meta: { agent: "a", judge: "old:judge", serverVersion: "0.2.3" }, results: [
+    { id: testCase.id, run: 1, deterministic: [], judge: { numbers_match: { verdict: "fail", reason: "old" } },
+      transcript: { answer: "x", calls: [] } },
+    { id: testCase.id, run: 2, error: "timeout", deterministic: [{ id: "run_completed", passed: false }], judge: {} }
+  ] };
+  const out = await rejudge({ data, cases, judge });
+  assert.equal(prompts.length, 1, "runs without an answer are not regraded");
+  assert.equal(out.results[0].judge.numbers_match.verdict, "pass");
+  assert.equal(out.results[1].error, "timeout");
+  assert.equal(out.meta.judge, "fake:judge");
+  assert.ok(out.meta.rejudgedAt);
+  assert.equal(data.results[0].judge.numbers_match.verdict, "fail", "the input is not changed");
 });

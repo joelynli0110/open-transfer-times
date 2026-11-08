@@ -49,7 +49,20 @@ lists all options.
 Results are written to `eval/results/` (git-ignored) as a markdown report and
 the full JSON transcripts. The JSON is saved after every case.
 
-### Long runs and local models
+### Regrading stored answers
+
+After a change to the rubric or to what the judge sees, regrade earlier runs
+instead of running the agent again:
+
+```bash
+npm run eval:rejudge -- eval/results/<run>.json --judge-provider <p> --judge-model <id>
+```
+
+It writes `<run>-rejudged.json` and `.md` and leaves the input unchanged.
+Regrade every run you compare, so they share the same grading; it costs only
+judge calls.
+
+## Long runs and local models
 
 - **Interrupted?** Re-run with the same options plus
   `--resume eval/results/<run>.json`. Finished cases are kept, failed ones are

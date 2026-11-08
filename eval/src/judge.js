@@ -6,10 +6,12 @@
 const RUBRIC = {
   numbers_match:
     "Every layover, transfer-time, margin or ranking figure the answer states for a connection matches the tool results. " +
+    "Figures from `worst_case`, `possible_steps`, `if_baggage_recheck` or `mct` count as matching. " +
     "Rounding that does not change meaning is fine. n/a if no tool returned an assessment.",
   no_invented_steps:
     "The answer does not present any transfer step, or a duration for a step, as counted unless it appears in that " +
-    "assessment's `steps`. Mentioning a step as something that did NOT apply, or as general advice, is fine. " +
+    "assessment's `steps`. Mentioning a step as something that did NOT apply, as one of `possible_steps` that may " +
+    "apply, or as general advice, is fine. " +
     "n/a if no tool returned an assessment.",
   no_invented_details:
     "The answer does not state specific dates, clock times, terminals, gates, airlines or flight numbers the user did " +
@@ -59,6 +61,11 @@ function summarizeCall(call) {
       steps: a.steps?.map((step) => `${step.label}: ${step.minutes} min (${step.basis})`),
       confidence: a.confidence, ticket: a.ticket?.status, decision: a.decision,
       wall_clock_layover_minutes: a.wall_clock_layover_minutes, baggage_recheck: a.baggage_recheck, if_baggage_recheck: a.if_baggage_recheck,
+      // Since 0.2.2/0.2.3 the tool reports these too; without them the judge marks correct answers as invented.
+      terminal_change: a.terminal_change,
+      possible_steps: a.possible_steps?.map((step) => `${step.label}: ${step.minutes} min (possible: ${step.unknown})`),
+      worst_case: a.worst_case,
+      mct: a.mct,
       facts: a.connection_airport?.facts?.map((fact) => ({ claim: fact.claim, scope: fact.scope || "none stated" }))
     })),
     other_result: result && !assessments.length ? result : undefined

@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Eval: the judge now sees `terminal_change`, `possible_steps`, `worst_case`
+  and `mct`. Without them it graded answers that cited a possible terminal
+  change, the worst-case margin or a published MCT as invented or wrong
+  (numbers_match fell from 98% to 74% between 0.2.1 and 0.2.3).
+- Eval: `npm run eval:rejudge` regrades stored answers with the current judge,
+  without running the agent again.
+
 ## 0.2.3 (open-transfer-times-mcp) / 0.2.2 (open-transfer-times)
 
 Unknown terminals are no longer treated as "no terminal change". From the
