@@ -16,9 +16,9 @@ how well each one is sourced. To propose data without writing YAML, open an issu
    do not extend it. If the page says "transfer passengers are screened again",
    do not add "this takes 15 minutes".
 3. **Keep durations honest.** A minute value is `basis: sourced` only when a
-   cited fact gives that duration (or a minimum connection time it is derived
-   from). Otherwise it stays `basis: heuristic`, even if the step itself is
-   confirmed.
+   cited fact gives that duration, and `basis: derived` when it is computed
+   from cited figures (say how in a comment). Otherwise it stays
+   `basis: heuristic`, even if the step itself is confirmed.
 4. **Airline-specific facts need a scope.** A minimum connection time published
    by one airline applies to that airline's connections; say so in `scope`, and
    give the figure as `minimum_connection_minutes` so the engine can check
@@ -78,7 +78,11 @@ sources:
 | `terminal_change` | Arrival and departure terminals differ. |
 | `security_rescreening` | Always, if greater than 0: transfer passengers are screened again. |
 
-Each allowance has a `basis` (`heuristic` or `sourced`) and an optional list of
+Each allowance has a `basis` and an optional list of `facts`. `heuristic`: a
+rule-of-thumb estimate. `derived`: computed from published figures, for
+example a shuttle interval plus a ride time; say how in a comment. `sourced`:
+the minutes themselves are published. `derived` and `sourced` need at least
+one fact. Each allowance also has an optional list of
 `facts` that support it. Listing a fact on a heuristic allowance means "this
 step is confirmed to exist, but its duration is still an estimate".
 
@@ -95,8 +99,25 @@ member countries, each with a reason (Svalbard). Regenerate the catalog with
 
 `applies_when` makes a fact machine-checkable. Each condition is evaluated as
 applies, does not apply, or unknown (for example when the user did not say
-which airline operates a flight); unknown is never treated as a pass. Today it
-is used for minimum connection times. Continents follow OurAirports' codes
+which airline operates a flight); unknown is never treated as a pass. It is
+used for minimum connection times and for `security_rescreening` (other
+allowances are not conditional yet). For a step that applies *except* on some
+routes, use `unless_route_any`:
+
+```yaml
+security_rescreening:
+  minutes: 15
+  basis: heuristic
+  facts: [conditional-security]
+  applies_when:
+    unless_route_any:
+      - { from_schengen: true, to_schengen: true }
+      - { from_country: [US, CA, GB, IE, SG, CY] }
+      - { from_airport: [BEG] }
+```
+
+Route patterns combine `from_`/`to_` with `continent`, `country` (list),
+`airport` (list) or `schengen` (true/false). Continents follow OurAirports' codes
 (`EU` includes Istanbul and Moscow), so say in a comment when that differs
 from the source's wording.
 

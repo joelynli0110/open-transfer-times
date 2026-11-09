@@ -171,3 +171,14 @@ test("validator checks the applies_when vocabulary", () => {
   assert.match(result.stderr, /from_continent must be one of/);
   assert.match(result.stderr, /unknown field "to_contnent"/);
 });
+
+test("validator: derived needs facts, and applies_when on an allowance is limited to supported steps", () => {
+  const derived = withScratchDataset((scratch) => edit(scratch, "airports/MUC.yaml", (text) =>
+    text.replace(/security_rescreening: \{ minutes: 0, basis: heuristic \}/, "security_rescreening: { minutes: 0, basis: derived }")));
+  assert.notEqual(derived.status, 0);
+  assert.match(derived.stderr, /basis "derived" requires at least one supporting fact/);
+  const unsupported = withScratchDataset((scratch) => edit(scratch, "airports/MUC.yaml", (text) =>
+    text.replace("terminal_change: { minutes: 12, basis: heuristic, facts: [inter-terminal-bus] }", "terminal_change: { minutes: 12, basis: heuristic, facts: [inter-terminal-bus], applies_when: { route_any: [{ from_schengen: true }] } }")));
+  assert.notEqual(unsupported.status, 0);
+  assert.match(unsupported.stderr, /applies_when is not supported for terminal_change yet/);
+});

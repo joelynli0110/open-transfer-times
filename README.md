@@ -31,7 +31,7 @@ Rating: REASONABLE — A practical connection on one ticket.
 Confidence: MEDIUM — The terminals are not known; a terminal change would make this connection tight or risky. With a terminal change (25 min) the margin would be 10 min (tight). The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 10 to 35 min (tight if every possible step applies).
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
-Possible step not counted: Change terminals 25 min (terminals not given). Give the margin as a range and ask for the terminals if it matters.
+Possible step not counted: Change terminals 25 min (terminals not given). Give the margin as a range and ask for the missing detail if it matters.
 ```
 
 ### With Claude Desktop or any MCP client
@@ -136,7 +136,10 @@ with a sourced figure, or report a rule the format can't express: see
 - **Not an official MCT table, and no delay prediction.** It is a structural
   estimate with its sources attached.
 - **Durations are mostly rule-of-thumb.** None of the 52 step durations is
-  sourced yet, so no result reaches `high` confidence. The only sourced minute
+  sourced or derived yet, so no result reaches `high` confidence. A deep check
+  of FRA, AMS and LHR found that airports publish which steps apply, but not
+  how long they take; minutes come from airlines (MCTs) or from parts of a
+  transfer (a train ride, a bus interval). The only sourced minute
   value is a published airline MCT (FRA). Sourcing durations matters more than
   adding airports with estimates only.
 - **MCT applicability needs the operating airlines.** Without them a
@@ -148,12 +151,11 @@ with a sourced figure, or report a rule the format can't express: see
   9,000 airports). Special cases inside member countries are listed in
   `regions/schengen.yaml` (Svalbard so far); Ceuta and Melilla's extra checks
   are not modelled.
-- **One rule set per airport.** Rules that depend on where you arrive from
-  (security at AMS), on terminal pairs (NRT) or on "some cases" (MUC) are not
-  modelled yet. Terminal changes and bag re-checks are already reported as
-  possible steps when unknown; AMS and MUC re-screening still count as 0 until
-  conditional rules ([RFC 0001](docs/rfcs/0001-context-dependent-rules.md))
-  can mark them unknown.
+- **Conditional steps: security only so far.** AMS re-screens transfer
+  passengers depending on where they arrive from, and the engine applies that
+  rule. Terminal-pair rules (NRT) and MUC's "some cases" are not modelled yet;
+  MUC re-screening still counts as 0
+  ([RFC 0001](docs/rfcs/0001-context-dependent-rules.md)).
 - **Self-transfers.** Re-checking bags adds a fixed allowance, but entering and
   leaving the country is not counted outside Schengen.
 - **Clock changes at other airports.** Only the 13 profiled airports have time

@@ -62,14 +62,14 @@ const factOutput = z.object({
 const allowanceOutput = z.object({
   step: z.string(),
   minutes: z.number(),
-  basis: z.enum(["heuristic", "sourced"]),
+  basis: z.enum(["heuristic", "derived", "sourced"]),
   supporting_facts: z.array(z.string())
 });
 const stepOutput = z.object({
   code: z.string(),
   label: z.string(),
   minutes: z.number(),
-  basis: z.enum(["heuristic", "sourced"]),
+  basis: z.enum(["heuristic", "derived", "sourced"]),
   supporting_facts: z.array(z.string())
 });
 const airportDataOutput = z.object({
@@ -325,8 +325,11 @@ function summarize(assessment) {
           ? ` (${assessment.worst_case.quality} if every possible step applies)` : ""}`
         : `${assessment.buffer_minutes} min`}.`,
     `Steps counted: ${assessment.steps.map((step) => `${step.label} ${step.minutes} min (${step.basis})`).join("; ")}. No other steps were counted.`,
-    ...(!insufficient && assessment.possible_steps.some((step) => step.code === "TERMINAL_CHANGE")
-      ? [`Possible step not counted: Change terminals ${assessment.possible_steps.find((step) => step.code === "TERMINAL_CHANGE").minutes} min (terminals not given). Give the margin as a range and ask for the terminals if it matters.`]
+    // Bags have their own line below; other unknown steps are listed here.
+    ...(!insufficient && assessment.possible_steps.some((step) => step.code !== "BAGGAGE_RECHECK")
+      ? [`Possible step${assessment.possible_steps.filter((step) => step.code !== "BAGGAGE_RECHECK").length > 1 ? "s" : ""} not counted: ${assessment.possible_steps
+        .filter((step) => step.code !== "BAGGAGE_RECHECK")
+        .map((step) => `${step.label} ${step.minutes} min (${step.unknown.toLowerCase()})`).join("; ")}. Give the margin as a range and ask for the missing detail if it matters.`]
       : []),
     ...(insufficient ? [] : [`Factors: ${assessment.factors.map((factor) => factor.label).join("; ")}.`]),
     // Separate tickets: state the protection gap as its own instruction; with more numbers in the text, agents

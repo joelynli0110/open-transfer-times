@@ -21,7 +21,8 @@
       baseTransferMinutes: allowances.baseTransfer.minutes,
       passportMinutes: allowances.passportControl.minutes,
       terminalChangeMinutes: allowances.terminalChange.minutes,
-      securityMinutes: allowances.securityRescreening.minutes
+      securityMinutes: allowances.securityRescreening.minutes,
+      securityAppliesWhen: allowances.securityRescreening.appliesWhen
     });
   }
 

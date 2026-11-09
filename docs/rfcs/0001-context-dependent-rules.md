@@ -1,6 +1,6 @@
 # RFC 0001: Context-dependent transfer rules (v0.2)
 
-- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0–0.3.0; Q1 and Q4 decided, see below.
+- Status: **Draft — feedback wanted.** Parts shipped in 0.2.0–0.4.0; Q1 and Q4 decided, see below.
 - Target release: 0.3.0
 - Discussion: [issue #6](https://github.com/joelynli0110/open-transfer-times/issues/6)
 
@@ -19,6 +19,21 @@ rest of this RFC:
 - **Bags on separate tickets as required / not required / unknown**, with the
   result of a re-check reported when it would matter. This is the first part of
   §4; entry and exit border steps are still open.
+
+## Shipped in 0.4.0
+
+- **Conditional transfer steps, first case: security re-screening at AMS.**
+  Allowances accept `applies_when`, with `unless_route_any` for "applies
+  except on these routes" and `from_airport` / `to_airport` patterns. Schiphol's
+  rule (no new screening for arrivals from the US, Canada, the UK, Ireland,
+  Singapore, Cyprus, Belgrade or Schengen) is now applied per trip; an unknown
+  origin becomes a possible step.
+- **`basis: derived`** for durations computed from published figures, between
+  `heuristic` and `sourced`. COVERAGE.md reports derived and conditional
+  allowances.
+- **Data finding (FRA, AMS, LHR):** airports publish which steps apply, not how
+  long they take. Minutes come from airlines (MCTs) or from parts of a transfer.
+  Next: terminal-pair conditions (NRT, LHR), MUC.
 
 ## Shipped in 0.3.0
 

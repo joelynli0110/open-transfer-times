@@ -306,3 +306,20 @@ test("applies_when uses three-valued logic: airline and route can each rule an M
   assert.equal(avoid.decision.value, "avoid");
   assert.ok(!avoid.confidence.reasons.some((reason) => reason.code === "BELOW_PUBLISHED_MCT"), "a known MCT is not an uncertainty");
 });
+
+test("AMS screens transfer passengers again depending on where they arrive from", () => {
+  const at = (from, to) => assessConnection(itinerary(from, "AMS", to, "2026-09-20T10:00", "2026-09-20T11:30"), { ticketStatus: "protected" });
+  const codes = (result) => result.checks.map((check) => check.code);
+  // Schiphol: no new screening for arrivals from the US, Canada, the UK, Ireland, Singapore, Cyprus, Belgrade or Schengen.
+  assert.ok(!codes(at("JFK", "NBO")).includes("SECURITY_RESCREENING"));
+  assert.ok(!codes(at("BEG", "NBO")).includes("SECURITY_RESCREENING"), "Belgrade is named by airport");
+  assert.ok(!codes(at("BER", "FCO")).includes("SECURITY_RESCREENING"));
+  assert.ok(at("BER", "FCO").factors.some((factor) => factor.code === "NO_SECURITY_RESCREENING"));
+  // Everyone else is screened again; Schengen → non-Schengen "may" be, and is counted.
+  assert.ok(codes(at("DXB", "LHR")).includes("SECURITY_RESCREENING"));
+  assert.ok(codes(at("BER", "JFK")).includes("SECURITY_RESCREENING"));
+  assert.equal(at("DXB", "LHR").structuralBufferMinutes, at("JFK", "LHR").structuralBufferMinutes - 15);
+  // An origin the catalog does not know leaves it open: a possible step, not a silent "no".
+  const unknown = at("ZZZ", "NBO");
+  assert.deepEqual(unknown.possibleSteps.map((step) => step.code), ["SECURITY_RESCREENING"]);
+});

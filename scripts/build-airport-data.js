@@ -19,7 +19,11 @@ const coverageReport = path.join(airportsDir, "COVERAGE.md");
 const checkOnly = process.argv.includes("--check");
 
 const ALLOWANCE_KEYS = ["base_transfer", "passport_control", "terminal_change", "security_rescreening"];
-const BASES = ["heuristic", "sourced"];
+// heuristic: rule-of-thumb estimate. derived: computed from published figures (e.g. a shuttle interval plus a ride
+// time); say how in a comment. sourced: the minutes themselves are published. derived and sourced need facts.
+const BASES = ["heuristic", "derived", "sourced"];
+// Allowances the engine can apply conditionally so far (RFC 0001).
+const CONDITIONAL_ALLOWANCES = ["security_rescreening"];
 const AIRPORT_KEYS = ["iata", "name", "country", "timezone", "last_reviewed", "allowances", "facts", "sources"];
 const FACT_KEYS = ["id", "claim", "source", "scope", "minimum_connection_minutes", "applies_when"];
 const SOURCE_KEYS = ["title", "publisher", "url", "retrieved", "published", "note"];
@@ -141,7 +145,11 @@ function validateAllowances(file, allowances, facts) {
       fail(file, `${where} is required`);
       continue;
     }
-    checkKeys(file, where, allowance, ["minutes", "basis", "facts"]);
+    checkKeys(file, where, allowance, ["minutes", "basis", "facts", "applies_when"]);
+    if (allowance.applies_when !== undefined) {
+      if (!CONDITIONAL_ALLOWANCES.includes(key)) fail(file, `${where}.applies_when is not supported for ${key} yet (only ${CONDITIONAL_ALLOWANCES.join(", ")})`);
+      validateAppliesWhen(file, `${where}.applies_when`, allowance.applies_when);
+    }
     if (!Number.isInteger(allowance.minutes) || allowance.minutes < 0 || allowance.minutes > MAX_ALLOWANCE_MINUTES) {
       fail(file, `${where}.minutes must be an integer between 0 and ${MAX_ALLOWANCE_MINUTES}`);
     }
@@ -152,11 +160,14 @@ function validateAllowances(file, allowances, facts) {
       for (const id of supporting) {
         if (!factIds.has(id)) fail(file, `${where}.facts references unknown fact "${id}"`);
       }
-      if (allowance.basis === "sourced" && supporting.length === 0) {
-        fail(file, `${where}: basis "sourced" requires at least one supporting fact`);
+      if (allowance.basis !== "heuristic" && supporting.length === 0) {
+        fail(file, `${where}: basis "${allowance.basis}" requires at least one supporting fact`);
       }
     }
-    result[key] = { minutes: allowance.minutes, basis: allowance.basis, facts: Array.isArray(supporting) ? supporting : [] };
+    result[key] = {
+      minutes: allowance.minutes, basis: allowance.basis, facts: Array.isArray(supporting) ? supporting : [],
+      ...(allowance.applies_when ? { appliesWhen: allowance.applies_when } : {})
+    };
   }
   return result;
 }
@@ -209,7 +220,7 @@ function validateAirport(file, data, expectedIata) {
 
 function coverageFor(allowances, facts) {
   const values = Object.values(allowances);
-  if (values.every((allowance) => allowance.basis === "sourced")) return "sourced";
+  if (values.every((allowance) => allowance.basis !== "heuristic")) return "sourced";
   if (facts.length > 0) return "partial";
   return "heuristic";
 }
@@ -218,13 +229,16 @@ function coverageFor(allowances, facts) {
 //   operating_airline: [LH]          both flights operated by one of these airlines (IATA codes)
 //   route_any:                       at least one route pattern matches
 //     - { from_continent: EU, to_continent: EU }
+//   unless_route_any:                does not apply when any of these route patterns matches
+//     - { from_country: [US, CA] }
+//   Route keys: from_/to_ + continent, country (list), airport (list), schengen (true/false).
 //     - { from_schengen: true, to_country: [US, SG, ZA] }
 const CONTINENTS = new Set(["AF", "AN", "AS", "EU", "NA", "OC", "SA"]);
-const ROUTE_KEYS = ["from_continent", "to_continent", "from_country", "to_country", "from_schengen", "to_schengen"];
+const ROUTE_KEYS = ["from_continent", "to_continent", "from_country", "to_country", "from_airport", "to_airport", "from_schengen", "to_schengen"];
 
 function validateAppliesWhen(file, where, value) {
   if (!isPlainObject(value)) return fail(file, `${where} must be a mapping`);
-  checkKeys(file, where, value, ["operating_airline", "route_any"]);
+  checkKeys(file, where, value, ["operating_airline", "route_any", "unless_route_any"]);
   if (!Object.keys(value).length) fail(file, `${where} needs at least one condition`);
   if (value.operating_airline !== undefined) {
     if (!Array.isArray(value.operating_airline) || !value.operating_airline.length
@@ -232,10 +246,14 @@ function validateAppliesWhen(file, where, value) {
       fail(file, `${where}.operating_airline must be a list of two-character IATA airline codes`);
     }
   }
-  if (value.route_any !== undefined) {
-    if (!Array.isArray(value.route_any) || !value.route_any.length) return fail(file, `${where}.route_any must be a non-empty list`);
-    value.route_any.forEach((route, index) => {
-      const at = `${where}.route_any[${index}]`;
+  for (const listKey of ["route_any", "unless_route_any"]) {
+    if (value[listKey] === undefined) continue;
+    if (!Array.isArray(value[listKey]) || !value[listKey].length) {
+      fail(file, `${where}.${listKey} must be a non-empty list`);
+      continue;
+    }
+    value[listKey].forEach((route, index) => {
+      const at = `${where}.${listKey}[${index}]`;
       if (!isPlainObject(route) || !Object.keys(route).length) return fail(file, `${at} must be a non-empty mapping`);
       checkKeys(file, at, route, ROUTE_KEYS);
       for (const key of ["from_continent", "to_continent"]) {
@@ -244,6 +262,11 @@ function validateAppliesWhen(file, where, value) {
       for (const key of ["from_country", "to_country"]) {
         if (route[key] !== undefined && (!Array.isArray(route[key]) || route[key].some((code) => !/^[A-Z]{2}$/.test(String(code))))) {
           fail(file, `${at}.${key} must be a list of ISO 3166-1 alpha-2 codes`);
+        }
+      }
+      for (const key of ["from_airport", "to_airport"]) {
+        if (route[key] !== undefined && (!Array.isArray(route[key]) || route[key].some((code) => !/^[A-Z]{3}$/.test(String(code))))) {
+          fail(file, `${at}.${key} must be a list of IATA airport codes`);
         }
       }
       for (const key of ["from_schengen", "to_schengen"]) {
@@ -341,8 +364,10 @@ function renderCoverage({ profiles }) {
   const rows = Object.values(profiles).map((profile) => {
     const allowances = Object.values(profile.allowances);
     const sourced = allowances.filter((allowance) => allowance.basis === "sourced").length;
+    const derived = allowances.filter((allowance) => allowance.basis === "derived").length;
     const supported = allowances.filter((allowance) => allowance.facts.length > 0).length;
-    return `| ${profile.iata} | ${profile.name} | ${profile.coverage} | ${sourced}/4 | ${supported}/4 | ${profile.facts.length} | ${Object.keys(profile.sources).length} | ${profile.lastReviewed} |`;
+    const conditional = allowances.filter((allowance) => allowance.appliesWhen).length;
+    return `| ${profile.iata} | ${profile.name} | ${profile.coverage} | ${sourced}/4 | ${derived}/4 | ${supported}/4 | ${conditional} | ${profile.facts.length} | ${Object.keys(profile.sources).length} | ${profile.lastReviewed} |`;
   });
   const counts = { sourced: 0, partial: 0, heuristic: 0 };
   for (const profile of Object.values(profiles)) counts[profile.coverage] += 1;
@@ -352,13 +377,15 @@ function renderCoverage({ profiles }) {
     `${counts.sourced} fully sourced, ${counts.partial} partially sourced, ${counts.heuristic} heuristic only. ` +
     `Every other airport uses [the standard baseline](_baseline.yaml).\n\n` +
     `- **Coverage** — \`sourced\`: every allowance is backed by a cited fact. \`partial\`: at least one cited fact. \`heuristic\`: rule-of-thumb values only.\n` +
-    `- **Sourced minutes** — allowances whose *duration* comes from a source.\n` +
+    `- **Sourced minutes** — allowances whose *duration* is published by a source.\n` +
+    `- **Derived minutes** — durations computed from published figures (for example a shuttle interval plus a ride time); the airport file says how.\n` +
+    `- **Conditional** — allowances applied only to some trips (\`applies_when\`), e.g. security re-screening depending on where the passenger arrives from.\n` +
     `- **Steps confirmed** — allowances whose *existence* (e.g. a security re-check) is confirmed by a cited fact, even if the duration is still estimated.\n\n` +
     `Help wanted: add official sources for airports marked \`heuristic\`, confirm more transfer steps, ` +
     `or replace estimated durations with sourced ones (\`Sourced minutes\`). See [CONTRIBUTING.md](../CONTRIBUTING.md). ` +
     `Open questions are noted as comments in the airport files.\n\n` +
-    `| IATA | Airport | Coverage | Sourced minutes | Steps confirmed | Facts | Sources | Last reviewed |\n` +
-    `| --- | --- | --- | --- | --- | --- | --- | --- |\n` +
+    `| IATA | Airport | Coverage | Sourced minutes | Derived minutes | Steps confirmed | Conditional | Facts | Sources | Last reviewed |\n` +
+    `| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n` +
     `${rows.join("\n")}\n`;
 }
 

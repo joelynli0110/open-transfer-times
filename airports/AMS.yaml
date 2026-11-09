@@ -4,19 +4,28 @@ iata: AMS
 name: Amsterdam Schiphol
 country: NL
 timezone: Europe/Amsterdam
-last_reviewed: 2026-10-29
+last_reviewed: 2026-11-09
 
 # Minutes the engine deducts from the scheduled layover.
 # basis: heuristic = rule-of-thumb estimate, not yet backed by a source.
-# basis: sourced   = derived from the facts/sources below (list them in 'sources').
-# Open question: security re-screening at AMS depends on where the passenger
-# arrives from (see conditional-security). The engine models a fixed allowance
-# per airport, so security_rescreening stays 0 until route-dependent rules exist.
+# basis: derived   = computed from published figures; basis: sourced = published minutes.
+# Security re-screening depends on where the passenger arrives from
+# (conditional-security). Schiphol says Schengen → non-Schengen transfers "may"
+# also be screened; that case is counted, to stay on the safe side. Schiphol
+# publishes no durations, so the 15 minutes are an estimate.
 allowances:
   base_transfer: { minutes: 30, basis: heuristic }
   passport_control: { minutes: 20, basis: heuristic, facts: [schengen-passport-control] }
   terminal_change: { minutes: 0, basis: heuristic }
-  security_rescreening: { minutes: 0, basis: heuristic }
+  security_rescreening:
+    minutes: 15
+    basis: heuristic
+    facts: [conditional-security]
+    applies_when:
+      unless_route_any:
+        - { from_schengen: true, to_schengen: true }
+        - { from_country: [US, CA, GB, IE, SG, CY] }
+        - { from_airport: [BEG] }
 
 # Verifiable statements about the transfer process, each tied to a source.
 facts:

@@ -46,7 +46,7 @@ Rating: REASONABLE — A practical connection on one ticket.
 Confidence: MEDIUM — The terminals are not known; a terminal change would make this connection tight or risky. With a terminal change (25 min) the margin would be 10 min (tight). The transfer-step durations are rule-of-thumb estimates, not sourced figures.
 Layover 90 min, transfer steps 55 min, margin 10 to 35 min (tight if every possible step applies).
 Steps counted: Move through airport 40 min (heuristic); Allow for another security check 15 min (heuristic). No other steps were counted.
-Possible step not counted: Change terminals 25 min (terminals not given). Give the margin as a range and ask for the terminals if it matters.
+Possible step not counted: Change terminals 25 min (terminals not given). Give the margin as a range and ask for the missing detail if it matters.
 Factors: Transfer through London Heathrow; Additional security screening may apply; Moderate transfer margin.
 Ticket: Protected itinerary.
 MCT: no published minimum connection time in this data. This is a structural estimate, not proof that an airline would sell this connection.

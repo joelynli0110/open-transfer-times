@@ -1,6 +1,32 @@
 # Changelog
 
 
+
+## 0.4.0
+
+Conditional transfer steps (RFC 0001), starting with security re-screening at
+Amsterdam, and a three-level basis for durations. From an external review that
+asked for context-aware airport rules and for separating sourced from
+estimated minutes.
+
+- **AMS security re-screening depends on where you arrive from.** Following
+  Schiphol, there is no new screening for arrivals from the US, Canada, the UK,
+  Ireland, Singapore, Cyprus, Belgrade or a Schengen country (Schengen to
+  Schengen); everyone else gets 15 minutes (estimate). Previously AMS counted
+  0 for every trip, so connections from e.g. Dubai or Beijing were too
+  optimistic. Schengen → non-Schengen, which Schiphol says "may" be screened,
+  is counted.
+- Allowances accept `applies_when` (security re-screening for now), with
+  `unless_route_any` and `from_airport` / `to_airport`. An unknown origin makes
+  the step a possible step.
+- **`basis: derived`** between `heuristic` and `sourced`: minutes computed from
+  published figures. COVERAGE.md adds "Derived minutes" and "Conditional"
+  columns.
+- LHR cites British Airways' 2015 Terminal 5 → Terminal 3 guide (about 90
+  minutes) as a fact; a terminal-pair condition is needed before it can be
+  applied.
+- The text result lists every possible step, not only terminal changes.
+
 ## 0.3.0
 
 A country for every airport, and the first conditional rules (RFC 0001).

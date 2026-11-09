@@ -143,6 +143,13 @@
       checks.push(check("SCHENGEN_BORDER_CONTROL", "Schengen border control", "Not indicated for this transfer flow", true));
     }
 
+    const trip = {
+      origin: inbound.origin,
+      destination: outbound.destination,
+      inboundAirline: normalizeAirline(options.inboundAirline ?? inbound.airline),
+      outboundAirline: normalizeAirline(options.outboundAirline ?? outbound.airline)
+    };
+
     // Terminal change is required, not required, or unknown. Unknown is not "no change": at an airport where
     // changing terminals takes time, it becomes a possible step and the result shows the margin with it.
     const terminalsGiven = Boolean(inbound.arrivalTerminal && outbound.departureTerminal);
@@ -157,10 +164,18 @@
       processFactors.push(factor("TERMINAL_CHANGE", "Terminal transfer required", "medium", "Changing terminals may add walking or transport time."));
       checks.push(check("TERMINAL_CHANGE", "Change terminals", `${rule.terminalChangeMinutes} min`, layoverMinutes >= deductions));
     }
-    if (rule.securityMinutes > 0) {
+    // Security re-screening may depend on the trip (AMS: where the passenger arrives from). Applies, does not
+    // apply, or unknown; unknown becomes a possible step, like an unknown terminal change.
+    const securityState = !(rule.securityMinutes > 0)
+      ? "does_not_apply"
+      : rule.securityAppliesWhen ? applicability(rule.securityAppliesWhen, trip) : "applies";
+    if (securityState === "applies") {
       deductions += rule.securityMinutes;
-      processFactors.push(factor("SECURITY_RESCREENING", "Additional security screening may apply", "medium", "The airport transfer rule includes a heuristic allowance for another security check."));
+      processFactors.push(factor("SECURITY_RESCREENING", "Additional security screening may apply", "medium",
+        rule.securityAppliesWhen ? "This trip matches the airport's rule for screening transfer passengers again." : "The airport transfer rule includes a heuristic allowance for another security check."));
       checks.push(check("SECURITY_RESCREENING", "Allow for another security check", `${rule.securityMinutes} min estimate`, layoverMinutes >= deductions));
+    } else if (securityState === "does_not_apply" && rule.securityMinutes > 0) {
+      processFactors.push(factor("NO_SECURITY_RESCREENING", "No new security check for this trip", "low", "The airport does not screen transfer passengers again on this route."));
     }
     const baggageRecheckRequired = options.baggageRecheck === true || itinerary.baggageRecheckRequired === true;
     const baggageRecheckRuledOut = options.baggageRecheck === false
@@ -188,6 +203,9 @@
     const possibleSteps = [];
     if (terminalChangeState === "unknown") {
       possibleSteps.push({ code: "TERMINAL_CHANGE", label: "Change terminals", minutes: rule.terminalChangeMinutes, unknown: "Terminals not given" });
+    }
+    if (securityState === "unknown") {
+      possibleSteps.push({ code: "SECURITY_RESCREENING", label: "Another security check", minutes: rule.securityMinutes, unknown: "Depends on where the flight arrives from" });
     }
     if (baggageWhatIf) {
       possibleSteps.push({ code: "BAGGAGE_RECHECK", label: "Collect bags and check in again", minutes: BAGGAGE_RECHECK_MINUTES, unknown: "Bags not stated" });
@@ -222,12 +240,7 @@
     // Published minimum connection times (MCT) are a separate question from the structural estimate: whether an
     // airline would sell this connection, not whether the transfer steps fit. Whether a scoped MCT applies to this
     // trip (airline, route type) is not known here, so a layover below one is never treated as a pass.
-    const mct = minimumConnectionCheck(airportProfile, layoverMinutes, {
-      origin: inbound.origin,
-      destination: outbound.destination,
-      inboundAirline: normalizeAirline(options.inboundAirline ?? inbound.airline),
-      outboundAirline: normalizeAirline(options.outboundAirline ?? outbound.airline)
-    });
+    const mct = minimumConnectionCheck(airportProfile, layoverMinutes, trip);
     const belowApplicableMct = mct.status === "below_published" && mct.applicability === "applies";
     const belowPossibleMct = mct.status === "below_published" && mct.applicability === "unknown";
 
@@ -380,6 +393,7 @@
   // Three-valued logic for applies_when conditions: applies, does_not_apply, unknown.
   const AND = (values) => values.includes("does_not_apply") ? "does_not_apply" : values.every((v) => v === "applies") ? "applies" : "unknown";
   const ANY = (values) => values.includes("applies") ? "applies" : values.every((v) => v === "does_not_apply") ? "does_not_apply" : "unknown";
+  const NOT = (value) => (value === "applies" ? "does_not_apply" : value === "does_not_apply" ? "applies" : "unknown");
   const bool = (known, yes) => (!known ? "unknown" : yes ? "applies" : "does_not_apply");
 
   function airlineCondition(allowed, trip) {
@@ -392,6 +406,7 @@
     const checks = [];
     const country = rulesModule.countryForAirport(airport);
     if (route[`${side}_country`]) checks.push(bool(Boolean(country), route[`${side}_country`].includes(country)));
+    if (route[`${side}_airport`]) checks.push(bool(Boolean(airport), route[`${side}_airport`].includes(String(airport).toUpperCase())));
     if (route[`${side}_continent`]) {
       const continent = rulesModule.continentForAirport(airport);
       checks.push(bool(Boolean(continent), continent === route[`${side}_continent`]));
@@ -407,9 +422,9 @@
     if (!appliesWhen) return "unknown";
     const parts = [];
     if (appliesWhen.operating_airline) parts.push(airlineCondition(appliesWhen.operating_airline, trip));
-    if (appliesWhen.route_any) {
-      parts.push(ANY(appliesWhen.route_any.map((route) => AND([endpointMatches(route, "from", trip.origin), endpointMatches(route, "to", trip.destination)]))));
-    }
+    const routeMatches = (route) => AND([endpointMatches(route, "from", trip.origin), endpointMatches(route, "to", trip.destination)]);
+    if (appliesWhen.route_any) parts.push(ANY(appliesWhen.route_any.map(routeMatches)));
+    if (appliesWhen.unless_route_any) parts.push(NOT(ANY(appliesWhen.unless_route_any.map(routeMatches))));
     return AND(parts);
   }
 
