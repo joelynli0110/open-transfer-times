@@ -22,9 +22,10 @@ estimated minutes.
 - **`basis: derived`** between `heuristic` and `sourced`: minutes computed from
   published figures. COVERAGE.md adds "Derived minutes" and "Conditional"
   columns.
-- LHR cites British Airways' 2015 Terminal 5 → Terminal 3 guide (about 90
-  minutes) as a fact; a terminal-pair condition is needed before it can be
-  applied.
+- LHR: British Airways' 2015 Terminal 5 → Terminal 3 guide (about 90
+  minutes) is noted in a comment, not as a fact. Added as a fact in a
+  pre-release build, it was cited by agents as general Heathrow guidance and
+  failed every LHR profile and scope question in the evaluation.
 - The text result lists every possible step, not only terminal changes.
 
 ## 0.3.0

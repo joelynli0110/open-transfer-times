@@ -164,8 +164,8 @@ passes the results to `compare_connections`.
 ## Writing result text for agents
 
 Agents mostly read the text result, not `structuredContent`, and they repeat
-it to the user. Four text changes were measured with the [agent
-evaluation](../../eval) (0.2.1 to 0.2.4); these rules come from what moved
+it to the user. Text and data changes were measured with the [agent
+evaluation](../../eval) (0.2.1 to 0.4.0); these rules come from what moved
 the numbers. Check them before changing any result text.
 
 1. **The decision comes first.** Agents repeat the first verdict they read.
@@ -187,7 +187,11 @@ the numbers. Check them before changing any result text.
 5. **Wording outside the result does little.** Rewording the server
    instructions and tool descriptions did not move these numbers; changing the
    result text did.
-6. **Every new field must reach the eval judge** (`summarizeCall` in
+6. **A fact the engine cannot apply is still read as advice.** A scoped,
+   dated fact (British Airways' 2015 T5 → T3 guide) was cited as general
+   Heathrow guidance in every LHR profile answer. Add facts only when their
+   scope can be stated and, ideally, checked.
+7. **Every new field must reach the eval judge** (`summarizeCall` in
    `eval/src/judge.js`). Otherwise correct answers that cite it are graded as
    invented, as happened with `possible_steps` and `worst_case` in 0.2.3.
 

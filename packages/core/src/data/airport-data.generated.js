@@ -610,12 +610,6 @@
             "source": "heathrow-connecting"
           },
           {
-            "id": "ba-t5-t3-connection",
-            "claim": "British Airways' 2015 connection guide gives a minimum connection time of about 90 minutes from Terminal 5 to Terminal 3, with a flight-connections bus and another security check.",
-            "source": "ba-t5-t3",
-            "scope": "British Airways connections from Terminal 5 to Terminal 3 (2015 guidance)"
-          },
-          {
             "id": "no-published-mct",
             "claim": "Heathrow does not publish a minimum connection time; travellers are told to check their airline's figure, which does not apply to separately booked flights.",
             "source": "heathrow-connecting"
@@ -627,13 +621,6 @@
             "publisher": "Heathrow Airport",
             "url": "https://www.heathrow.com/connecting-flights",
             "retrieved": "2026-10-29"
-          },
-          "ba-t5-t3": {
-            "title": "LHR flight connections: Terminal 5 to Terminal 3",
-            "publisher": "British Airways",
-            "url": "https://www.britishairways.com/assets/pdfs/information/airport-information/lhr-connections/LHR-Flight-connections_Terminal-5-to-Terminal-3.pdf",
-            "published": "2015-06-01",
-            "retrieved": "2026-11-09"
           }
         },
         "coverage": "partial"

@@ -22,7 +22,7 @@ Help wanted: add official sources for airports marked `heuristic`, confirm more 
 | HND | Tokyo Haneda | partial | 0/4 | 0/4 | 2/4 | 0 | 2 | 1 | 2026-10-29 |
 | ICN | Seoul Incheon | partial | 0/4 | 0/4 | 1/4 | 0 | 1 | 1 | 2026-10-29 |
 | IST | Istanbul | partial | 0/4 | 0/4 | 1/4 | 0 | 1 | 1 | 2026-10-29 |
-| LHR | London Heathrow | partial | 0/4 | 0/4 | 2/4 | 0 | 4 | 2 | 2026-11-09 |
+| LHR | London Heathrow | partial | 0/4 | 0/4 | 2/4 | 0 | 3 | 1 | 2026-11-09 |
 | MUC | Munich | partial | 0/4 | 0/4 | 2/4 | 0 | 4 | 1 | 2026-10-29 |
 | NRT | Tokyo Narita | partial | 0/4 | 0/4 | 2/4 | 0 | 3 | 2 | 2026-10-29 |
 | SIN | Singapore Changi | partial | 0/4 | 0/4 | 1/4 | 0 | 1 | 1 | 2026-10-29 |
