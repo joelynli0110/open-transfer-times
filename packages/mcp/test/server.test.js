@@ -324,7 +324,7 @@ test("the server sends usage instructions on connect", async () => {
   const { client, close } = await connect();
   try {
     const instructions = client.getInstructions();
-    assert.match(instructions, /pass layover_minutes\. Never invent dates or clock times/);
+    assert.match(instructions, /pass layover_minutes\. If they give clock times without a date .* pass them as HH:mm\. Never invent dates or clock times/);
     assert.match(instructions, /Explain only the transfer steps listed in `steps`/);
     assert.match(instructions, /insufficient_data/);
     assert.match(instructions, /Call a tool first with what the user gave/);
@@ -501,8 +501,37 @@ test("operating airlines decide whether a published MCT applies", async () => {
     assert.equal(met.structuredContent.mct.applicability, "applies");
     assert.match(met.content[0].text, /\nMCT: meets the minimum connection time that applies to this trip: 60 min/);
 
-    const invalid = await call({ inbound_airline: "Lufthansa" });
-    assert.ok(invalid.isError);
+    // A name instead of a code is treated as unknown, not as an error.
+    const named = await call({ inbound_airline: "Lufthansa" });
+    assert.ok(!named.isError);
+    assert.equal(named.structuredContent.mct.applicability, "unknown");
+  } finally {
+    await close();
+  }
+});
+
+test("clock times without a date are accepted, and an unusable airline code is treated as unknown", async () => {
+  const { client, close } = await connect();
+  try {
+    const call = (args) => client.callTool({ name: "check_connection", arguments: { from: "BER", via: "LHR", to: "PVG", ticket: "protected", ...args } });
+    const clock = await call({ arrival_time: "14:05", departure_time: "15:20" });
+    assert.ok(!clock.isError);
+    assert.equal(clock.structuredContent.layover_minutes, 75);
+    assert.equal(clock.structuredContent.layover_basis, "clock_times");
+    assert.match(clock.content[0].text, /Layover 75 min \(from clock times without a date\)/);
+    const duration = await call({ layover_minutes: 75 });
+    assert.equal(clock.structuredContent.buffer_minutes, duration.structuredContent.buffer_minutes);
+
+    const overnight = await call({ arrival_time: "23:30", departure_time: "01:10" });
+    assert.equal(overnight.structuredContent.layover_minutes, 100, "a departure earlier than the arrival is the next day");
+
+    const mixed = await call({ arrival_time: "14:05", departure_time: "2026-09-20T15:20" });
+    assert.ok(mixed.isError);
+    assert.match(mixed.content[0].text, /both as clock times/);
+
+    const named = await call({ layover_minutes: 75, inbound_airline: "Lufthansa", outbound_airline: "other airline" });
+    assert.ok(!named.isError);
+    assert.equal(named.structuredContent.mct.status, "none_published");
   } finally {
     await close();
   }

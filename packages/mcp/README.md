@@ -27,7 +27,7 @@ All tools are read-only.
 | Field | Required | Example | Notes |
 | --- | --- | --- | --- |
 | `from`, `via`, `to` | yes | `BER`, `LHR`, `PVG` | IATA codes; case-insensitive. |
-| `arrival_time` | one of | `2026-09-20T10:00` | First flight's arrival, local time at `via`; a UTC offset (`+02:00`) is optional. |
+| `arrival_time` | one of | `2026-09-20T10:00` | First flight's arrival, local time at `via`; a UTC offset (`+02:00`) is optional. Without a date, give clock times (`14:05`) for both: the layover is the clock difference, the next day if the departure is earlier. |
 | `departure_time` | one of | `2026-09-20T11:30` | Second flight's departure, local time at `via`. |
 | `layover_minutes` | one of | `90` | Use instead of the two times when only the layover length is known. |
 | `ticket` | no | `protected` | `protected` (one booking), `separate` (self-transfer), `unknown` (default). |

@@ -12,6 +12,8 @@ const PROTECTION_RANK = { protected: 0, unknown: 1, separate: 2 };
 const CONFIDENCE_RANK = { high: 0, medium: 1, low: 2 };
 const DECISION_RANK = Object.fromEntries(core.DECISIONS.map((value, index) => [value, index]));
 const LOCAL_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?(Z|[+-]\d{2}:\d{2})?$/;
+// Clock time without a date ("14:05"): users often know only that. Both times must then be clock times.
+const CLOCK_TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const DISCLAIMER =
   "Structural estimate from scheduled times and published airport information. " +
   "Not an official minimum connection time and not a delay prediction.";
@@ -20,18 +22,27 @@ const DISCLAIMER =
 // Input schemas
 
 const iata = z.string().trim().regex(/^[A-Za-z]{3}$/, "3-letter IATA airport code").transform((value) => value.toUpperCase());
-const localTime = z.string().regex(LOCAL_TIME, "Local time at the connection airport, YYYY-MM-DDTHH:mm, optionally with a UTC offset such as +02:00");
+const localTime = z.string().trim().refine((value) => LOCAL_TIME.test(value) || CLOCK_TIME.test(value),
+  "Local time at the connection airport: YYYY-MM-DDTHH:mm (optionally with a UTC offset such as +02:00), or HH:mm when the date is not known");
 
-const airlineCode = z.string().trim().toUpperCase().regex(/^[A-Z0-9]{2}$/, "Use a two-character IATA airline code, e.g. LH");
+// Lenient on purpose: an airline name or an unusual code is treated as unknown instead of failing the whole call
+// (in the 0.4.0 evaluation an agent passed a name and lost the assessment). Unknown never counts as a match.
+const airlineCode = z.preprocess(
+  (value) => {
+    const code = String(value ?? "").trim().toUpperCase();
+    return /^[A-Z0-9]{2}$/.test(code) ? code : undefined;
+  },
+  z.string().optional()
+);
 
 const connectionFields = {
   from: iata.describe("Origin airport of the first flight (IATA), e.g. BER"),
   via: iata.describe("Connection airport (IATA), e.g. IST"),
   to: iata.describe("Destination airport of the second flight (IATA), e.g. PVG"),
   arrival_time: localTime.optional()
-    .describe("Scheduled arrival of the first flight at the connection airport, local time, YYYY-MM-DDTHH:mm. Give both times, or layover_minutes instead."),
+    .describe("Scheduled arrival of the first flight at the connection airport, local time, YYYY-MM-DDTHH:mm, or HH:mm if the user gave no date (never invent one). Give both times, or layover_minutes instead."),
   departure_time: localTime.optional()
-    .describe("Scheduled departure of the second flight from the connection airport, local time, YYYY-MM-DDTHH:mm. Give both times, or layover_minutes instead."),
+    .describe("Scheduled departure of the second flight from the connection airport, local time, YYYY-MM-DDTHH:mm, or HH:mm if the user gave no date. Give both times, or layover_minutes instead."),
   layover_minutes: z.number().int().min(1).max(1440).optional()
     .describe("Scheduled time between arrival and departure, in minutes. Use this when the user gives only a layover duration; do not invent dates or clock times."),
   ticket: z.enum(["protected", "separate", "unknown"]).default("unknown")
@@ -84,13 +95,13 @@ const airportDataOutput = z.object({
 const connectionAirportOutput = airportDataOutput.omit({ allowances: true });
 const assessmentOutput = z.object({
   route: z.string(),
-  layover_source: z.enum(["times", "duration"]),
+  layover_source: z.enum(["times", "clock_times", "duration"]),
   decision: z.object({
     value: z.enum(["recommend", "caution", "insufficient_data", "avoid"]),
     reasons: z.array(z.object({ code: z.string(), explanation: z.string() }))
   }).describe("What to do with this connection. insufficient_data means key information is missing: ask the user rather than recommending it."),
-  layover_basis: z.enum(["timezone", "offset", "wall_clock", "duration"])
-    .describe("How the layover length was computed: the airport's time zone, explicit UTC offsets, plain clock difference, or a given duration."),
+  layover_basis: z.enum(["timezone", "offset", "wall_clock", "duration", "clock_times"])
+    .describe("How the layover length was computed: the airport's time zone, explicit UTC offsets, plain clock difference, a given duration, or clock times without a date (a departure earlier than the arrival is the next day; clock changes cannot be checked)."),
   wall_clock_layover_minutes: z.number().optional().describe("Present when clocks change during the layover: what the local clocks show."),
   baggage_recheck: z.enum(["required", "not_required", "unknown"]),
   if_baggage_recheck: z.object({ buffer_minutes: z.number(), quality: z.string() }).optional()
@@ -217,6 +228,19 @@ function itineraryTimes(input) {
   if (hasArrival !== hasDeparture) {
     throw new Error("Give both arrival_time and departure_time, or give layover_minutes instead.");
   }
+  if (hasArrival && (CLOCK_TIME.test(input.arrival_time) || CLOCK_TIME.test(input.departure_time))) {
+    if (!(CLOCK_TIME.test(input.arrival_time) && CLOCK_TIME.test(input.departure_time))) {
+      throw new Error("Give both times with a date (YYYY-MM-DDTHH:mm) or both as clock times (HH:mm).");
+    }
+    // No date: the layover is the clock difference, and a departure time earlier than the arrival is the next day.
+    const minutes = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+    let layover = minutes(input.departure_time) - minutes(input.arrival_time);
+    if (layover <= 0) layover += 1440;
+    if (input.layover_minutes !== undefined && input.layover_minutes !== layover) {
+      throw new Error(`layover_minutes (${input.layover_minutes}) does not match the given times (${layover} min).`);
+    }
+    return { ...durationTimes(layover), source: "clock_times" };
+  }
   if (hasArrival) {
     let fromTimes = null;
     try {
@@ -232,8 +256,11 @@ function itineraryTimes(input) {
   if (input.layover_minutes === undefined) {
     throw new Error("Give arrival_time and departure_time, or layover_minutes.");
   }
-  const departure = `${new Date(Date.UTC(2000, 0, 1, 0, input.layover_minutes)).toISOString().slice(0, 16)}Z`;
-  return { arrival: REFERENCE_ARRIVAL, departure, source: "duration" };
+  return { ...durationTimes(input.layover_minutes), source: "duration" };
+}
+
+function durationTimes(layoverMinutes) {
+  return { arrival: REFERENCE_ARRIVAL, departure: `${new Date(Date.UTC(2000, 0, 1, 0, layoverMinutes)).toISOString().slice(0, 16)}Z` };
 }
 
 function assess(input) {
@@ -264,7 +291,7 @@ function assess(input) {
       value: result.decision.value,
       reasons: result.decision.reasons.map(({ code, explanation }) => ({ code, explanation }))
     },
-    layover_basis: times.source === "duration" ? "duration" : result.layoverBasis,
+    layover_basis: times.source === "times" ? result.layoverBasis : times.source,
     ...(result.wallClockLayoverMinutes !== result.layoverMinutes ? { wall_clock_layover_minutes: result.wallClockLayoverMinutes } : {}),
     baggage_recheck: result.baggageRecheck,
     ...(result.ifBaggageRecheck ? { if_baggage_recheck: { buffer_minutes: result.ifBaggageRecheck.bufferMinutes, quality: result.ifBaggageRecheck.quality } } : {}),
@@ -319,7 +346,7 @@ function summarize(assessment) {
     // With insufficient data no margin is shown: agents turned a large rough margin into "comfortable" (0.2.3 eval).
     insufficient
       ? `Rough estimate only: layover ${assessment.layover_minutes} min, generic transfer steps ${assessment.transfer_process_minutes} min${possibleMinutes(assessment)}. No margin is given because the data cannot support one.`
-      : `Layover ${assessment.layover_minutes} min${assessment.wall_clock_layover_minutes !== undefined
+      : `Layover ${assessment.layover_minutes} min${assessment.layover_basis === "clock_times" ? " (from clock times without a date)" : ""}${assessment.wall_clock_layover_minutes !== undefined
         ? ` (clocks change: local clocks show ${assessment.wall_clock_layover_minutes} min)` : ""}, transfer steps ${assessment.transfer_process_minutes} min, margin ${assessment.worst_case
         ? `${assessment.worst_case.buffer_minutes} to ${assessment.buffer_minutes} min${["tight", "risky"].includes(assessment.worst_case.quality)
           ? ` (${assessment.worst_case.quality} if every possible step applies)` : ""}`
@@ -402,7 +429,7 @@ function errorResult(error) {
 const INSTRUCTIONS = [
   "Use these tools to check whether a flight connection leaves enough time to transfer. The tools do the arithmetic; explain their results, do not recompute them.",
   "- Call a tool first with what the user gave. Ticket type and checked bags may be unknown: leave them out and the tool reports what they would change.",
-  "- If the user gives only a layover length (\"50 minutes in Frankfurt\"), pass layover_minutes. Never invent dates or clock times.",
+  "- If the user gives only a layover length (\"50 minutes in Frankfurt\"), pass layover_minutes. If they give clock times without a date (\"land 14:05, leave 15:20\"), pass them as HH:mm. Never invent dates or clock times.",
   "- Ask before calling a tool only when the connection airport, or both the layover length and the times, are missing.",
   "- When the user compares two or more options, use compare_connections once with all of them, not check_connection for each.",
   "- For an itinerary with several stops, check each connection separately.",

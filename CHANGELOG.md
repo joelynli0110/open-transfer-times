@@ -2,6 +2,19 @@
 
 
 
+
+## 0.4.1 (open-transfer-times-mcp only)
+
+Two input checks that were too strict, found in the 0.4.0 evaluation.
+
+- **Clock times without a date** (`arrival_time: "14:05"`, `departure_time:
+  "15:20"`) are accepted. The layover is the clock difference, the next day
+  when the departure time is earlier; `layover_basis` is `clock_times`.
+  Before, the call failed and agents asked users for a date or made one up.
+- **Airline codes are lenient.** A name or an unusable code in
+  `inbound_airline` / `outbound_airline` is treated as unknown instead of
+  failing the whole call.
+
 ## 0.4.0
 
 Conditional transfer steps (RFC 0001), starting with security re-screening at
