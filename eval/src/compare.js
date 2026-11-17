@@ -59,11 +59,34 @@ function compareRuns(runs) {
   const categories = [...new Set(outcomes.flatMap((list) => list.map((o) => o.result.category)))].sort();
   lines.push("", "## By category", "", `| Category | ${runs.map((run) => label(run.meta)).join(" | ")} |`, `| --- |${runs.map(() => " --- |").join("")}`);
   for (const category of categories) {
-    const cells = outcomes.map((list) => {
+    const cells = outcomes.map((list, index) => {
+      // Without tools there are no checks to pass, so a pass rate would read 100%.
+      if (!isMcp(index)) return "–";
       const inCategory = list.filter((o) => o.result.category === category);
       return pct(inCategory.filter((o) => o.passed).length, inCategory.length);
     });
     lines.push(`| ${category} | ${cells.join(" | ")} |`);
+  }
+
+  if (golds.some((gold) => gold.graded)) {
+    lines.push("", "## Gold set by category (conclusion allowed)", "", `| Category | ${runs.map((run) => label(run.meta)).join(" | ")} |`, `| --- |${runs.map(() => " --- |").join("")}`);
+    for (const category of categories) {
+      const cells = outcomes.map((list) => {
+        const graded = list.filter((o) => o.result.category === category && o.result.gold?.label);
+        return graded.length ? pct(graded.filter((o) => o.result.gold.items.gold_outcome.verdict === "pass").length, graded.length) : "–";
+      });
+      lines.push(`| ${category} | ${cells.join(" | ")} |`);
+    }
+    // Where the runs disagree, case by case: the most useful view for reading what a mode changes.
+    const caseIds = [...new Set(outcomes.flatMap((list) => list.filter((o) => o.result.gold?.label).map((o) => o.result.id)))];
+    const labelsFor = (list, id) => list.filter((o) => o.result.id === id && o.result.gold?.label)
+      .map((o) => `${o.result.gold.label}${o.result.gold.items.gold_outcome.verdict === "pass" ? "" : "✗"}`);
+    const differing = caseIds.filter((id) => new Set(outcomes.map((list) => labelsFor(list, id).filter((l) => l.endsWith("✗")).length)).size > 1);
+    if (differing.length) {
+      lines.push("", "## Gold set: cases where the runs differ", "", "Conclusions per run; ✗ = not allowed by the gold set.", "",
+        `| Case | ${runs.map((run) => label(run.meta)).join(" | ")} |`, `| --- |${runs.map(() => " --- |").join("")}`);
+      for (const id of differing) lines.push(`| ${id} | ${outcomes.map((list) => labelsFor(list, id).join(", ") || "–").join(" | ")} |`);
+    }
   }
 
   lines.push("", "## Token use (agent)", "", `| | ${runs.map((run) => label(run.meta)).join(" | ")} |`, `| --- |${runs.map(() => " --- |").join("")}`);

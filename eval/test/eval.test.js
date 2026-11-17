@@ -569,4 +569,6 @@ test("reports and comparisons show gold metrics for every mode and tool checks o
   assert.match(table, /\| \*\*Gold: conclusion allowed\*\* \| 75% \(3\/4\) \| 75% \(3\/4\) \|/);
   assert.match(table, /a · x · no-tools/);
   assert.match(table, /– \(no tools\)/);
+  assert.doesNotMatch(table, /\| x \| 100%/, "no tool-check pass rate per category without tools");
+  assert.match(table, /## Gold set by category/);
 });
