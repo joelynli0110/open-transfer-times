@@ -273,8 +273,10 @@ test("comparison report lines up runs on shared cases and flags different judges
 test("CLI argument parsing and case selection", () => {
   const args = parseArgs(["--provider", "ollama", "--model", "qwen", "--judge-provider", "anthropic", "--category", "compare",
     "--limit", "2", "--repeat", "3", "--no-server-instructions"]);
-  assert.deepEqual(args, { repeat: 3, serverInstructions: false, noThink: false, provider: "ollama", model: "qwen", judgeProvider: "anthropic", category: "compare", limit: 2 });
-  assert.deepEqual(parseArgs(["--no-think", "--resume", "eval/results/x.json"]), { repeat: 1, serverInstructions: true, noThink: true, resume: "eval/results/x.json" });
+  assert.deepEqual(args, { repeat: 3, serverInstructions: false, noThink: false, mode: "mcp", gold: true, provider: "ollama", model: "qwen", judgeProvider: "anthropic", category: "compare", limit: 2 });
+  assert.deepEqual(parseArgs(["--no-think", "--resume", "eval/results/x.json"]), { repeat: 1, serverInstructions: true, noThink: true, mode: "mcp", gold: true, resume: "eval/results/x.json" });
+  assert.equal(parseArgs(["--mode", "no-tools", "--no-gold"]).mode, "no-tools");
+  assert.equal(parseArgs(["--no-gold"]).gold, false);
   assert.equal(selectCases(cases, args).length, 2);
   assert.ok(selectCases(cases, args).every((testCase) => testCase.category === "compare"));
   assert.deepEqual(selectCases(cases, { only: ["low-vie-zh"] }).map((testCase) => testCase.id), ["low-vie-zh"]);
@@ -375,7 +377,7 @@ function runCli(args, env) {
 test("an interrupted run is saved as it goes and can be resumed to completion", async () => {
   const resultsDir = fs.mkdtempSync(path.join(os.tmpdir(), "eval-results-"));
   const ids = ["duration-fra-50-zh", "duration-doh-2h-en", "duration-ams-75-en", "duration-nrt-90-zh", "duration-hkg-60-en"];
-  const common = ["--provider", "ollama", "--model", "m", "--only", ids.join(",")];
+  const common = ["--provider", "ollama", "--model", "m", "--only", ids.join(","), "--no-gold"];
   try {
     // 1) The model server dies after two cases (each case: 2 agent calls + 1 judge call).
     const dying = await fakeModelServer({ failAfterRequests: 6 });
@@ -501,4 +503,70 @@ test("rejudge --errors-only regrades only runs whose judge failed, and compare w
   assert.equal(prompts, 1);
   assert.ok(!judgeFailed(out.results[0]));
   assert.equal(out.results[1].judge.numbers_match.reason, "kept");
+});
+
+test("gold grading: label, required points, unsafe reassurance; replies are parsed strictly", async () => {
+  const { judgeGold, parseGoldReply, loadGold } = require("../src/gold.js");
+  const gold = loadGold();
+  assert.ok(gold && gold.cases["mct-lh-fra-en"], "the gold set covers the cases");
+  assert.ok(Object.keys(gold.cases).every((id) => cases.some((c) => c.id === id)), "every gold entry names a real case");
+  for (const [id, entry] of Object.entries(gold.cases)) {
+    assert.ok(entry.outcome.length && entry.outcome.every((label) => Object.hasOwn(gold.outcomes, label)), `${id}: valid outcomes`);
+  }
+  assert.throws(() => parseGoldReply('{"label": "great", "points": {"verdict": "pass"}}', gold.outcomes), /unknown label/);
+  const testCase = cases.find((c) => c.id === "mct-lh-fra-en");
+  const reply = (label, verdict) => ({ name: "fake", complete: async () => JSON.stringify({ label, points: { verdict, reason: "r" } }) });
+  const unsafe = await judgeGold({ judge: reply("workable", "fail"), gold, testCase, answer: "Sure, 50 minutes is fine." });
+  assert.equal(unsafe.items.gold_outcome.verdict, "fail");
+  assert.equal(unsafe.unsafe, true);
+  const good = await judgeGold({ judge: reply("not_workable", "pass"), gold, testCase, answer: "No: below Lufthansa's 60-minute minimum." });
+  assert.equal(good.items.gold_outcome.verdict, "pass");
+  assert.equal(good.items.gold_points.verdict, "pass");
+  assert.equal(good.unsafe, false);
+  assert.equal(await judgeGold({ judge: reply("info", "n/a"), gold, testCase: { id: "profile-list-zh", prompt: "" }, answer: "" }), null, "cases outside the gold set are not graded");
+});
+
+test("baseline modes: no tools are offered, docs mode puts the airport data in the prompt", async () => {
+  const { evaluate, baselineSystem } = require("../src/run.js");
+  const testCase = cases.find((c) => c.id === "duration-ams-75-en");
+  assert.doesNotMatch(baselineSystem("no-tools", testCase), /Schiphol/);
+  const docs = baselineSystem("docs", testCase);
+  assert.match(docs, /Amsterdam Airport Schiphol \(AMS\)/);
+  assert.match(docs, /security check applies to every trip except: from a Schengen country and to a Schengen country/);
+  const seen = [];
+  const agent = { name: "fake:agent", async runAgent({ server, system }) {
+    seen.push({ tools: server.tools.length, system });
+    return { answer: "Tight but doable.", calls: [], turns: 1, stopReason: "stop", usage: { input_tokens: 1, output_tokens: 1 } };
+  } };
+  const judge = { name: "fake:judge", complete: async () => JSON.stringify({ label: "tight", points: { verdict: "pass", reason: "" } }) };
+  const gold = require("../src/gold.js").loadGold();
+  const { results } = await evaluate({ agent, judge, cases: [testCase], mode: "docs", gold });
+  assert.equal(seen[0].tools, 0);
+  assert.match(seen[0].system, /Schiphol/);
+  assert.deepEqual(results[0].deterministic, [], "no tool checks without tools");
+  assert.deepEqual(results[0].judge, {});
+  assert.equal(results[0].gold.label, "tight");
+  await assert.rejects(evaluate({ agent, judge, cases: [testCase], mode: "web" }), /Unknown mode/);
+});
+
+test("reports and comparisons show gold metrics for every mode and tool checks only for mcp", () => {
+  const { buildReport, goldSummary } = require("../src/report.js");
+  const gold = (label, outcome, unsafe = false) => ({ label, unsafe, items: { gold_outcome: { verdict: outcome }, gold_points: { verdict: "n/a" } } });
+  const results = [
+    { id: "a", run: 1, category: "x", deterministic: [], judge: {}, gold: gold("workable", "fail", true) },
+    { id: "a", run: 2, category: "x", deterministic: [], judge: {}, gold: gold("tight", "pass") },
+    { id: "b", run: 1, category: "x", deterministic: [], judge: {}, gold: gold("tight", "pass") },
+    { id: "b", run: 2, category: "x", deterministic: [], judge: {}, gold: gold("tight", "pass") }
+  ];
+  const summary = goldSummary(results);
+  assert.deepEqual([summary.outcome.passed, summary.unsafe.passed, summary.consistent.passed, summary.consistent.total], [3, 1, 1, 2]);
+  const meta = { agent: "a", judge: "j", serverVersion: "x", repeat: 2, startedAt: "t", usage: { input_tokens: 0, output_tokens: 0 }, mode: "no-tools", goldStatus: "draft" };
+  const report = buildReport({ results, meta });
+  assert.match(report.markdown, /Mode: no-tools/);
+  assert.match(report.markdown, /Against the gold set \(draft, not yet reviewed\)/);
+  assert.doesNotMatch(report.markdown, /passed every check/);
+  const table = compareRuns([{ meta, results }, { meta: { ...meta, mode: "mcp" }, results }]);
+  assert.match(table, /\| \*\*Gold: conclusion allowed\*\* \| 75% \(3\/4\) \| 75% \(3\/4\) \|/);
+  assert.match(table, /a · x · no-tools/);
+  assert.match(table, /– \(no tools\)/);
 });

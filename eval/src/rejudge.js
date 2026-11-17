@@ -16,6 +16,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createProvider } = require("./providers.js");
 const { judgeAnswer } = require("./judge.js");
+const { judgeGold, loadGold } = require("./gold.js");
 const { buildReport } = require("./report.js");
 
 const FLAGS = { "--judge-provider": "provider", "--judge-model": "model", "--judge-base-url": "baseUrl", "--judge-api-key-env": "apiKeyEnv" };
@@ -32,9 +33,11 @@ function parseRejudgeArgs(argv) {
   return out;
 }
 
-const judgeFailed = (result) => Object.values(result.judge || {}).some((item) => item.verdict === "error");
+const judgeFailed = (result) =>
+  Object.values({ ...result.judge, ...result.gold?.items }).some((item) => item.verdict === "error");
 
-async function rejudge({ data, cases, judge, errorsOnly = false, onProgress = () => {} }) {
+async function rejudge({ data, cases, judge, gold = null, errorsOnly = false, onProgress = () => {} }) {
+  const mcp = (data.meta?.mode || "mcp") === "mcp";
   const byId = new Map(cases.map((testCase) => [testCase.id, testCase]));
   const results = [];
   for (const result of data.results) {
@@ -44,11 +47,19 @@ async function rejudge({ data, cases, judge, errorsOnly = false, onProgress = ()
       results.push(result);
       continue;
     }
-    const judged = { ...result, judge: await judgeAnswer({ judge, testCase, transcript: result.transcript }) };
+    const goldResult = gold ? await judgeGold({ judge, gold, testCase, answer: result.transcript.answer }) : null;
+    const judged = {
+      ...result,
+      judge: mcp ? await judgeAnswer({ judge, testCase, transcript: result.transcript }) : {},
+      ...(goldResult ? { gold: goldResult } : {})
+    };
     results.push(judged);
     onProgress(judged);
   }
-  return { meta: { ...data.meta, judge: judge.name, rejudgedAt: new Date().toISOString() }, results };
+  return {
+    meta: { ...data.meta, judge: judge.name, rejudgedAt: new Date().toISOString(), ...(gold ? { gold: true, goldStatus: gold.status } : {}) },
+    results
+  };
 }
 
 async function main() {
@@ -78,7 +89,7 @@ async function main() {
   const todo = data.results.filter((result) => result.transcript && (!args.errorsOnly || judgeFailed(result))).length;
   console.error(`Regrading ${todo} stored answer(s) with ${judge.name}`);
   const out = await rejudge({
-    data, cases, judge, errorsOnly: args.errorsOnly,
+    data, cases, judge, errorsOnly: args.errorsOnly, gold: loadGold(),
     onProgress: (result) => {
       const failed = result.deterministic.filter((check) => !check.passed).length +
         Object.values(result.judge || {}).filter((item) => item.verdict === "fail" || item.verdict === "error").length;

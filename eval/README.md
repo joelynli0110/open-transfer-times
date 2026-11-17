@@ -49,6 +49,39 @@ lists all options.
 Results are written to `eval/results/` (git-ignored) as a markdown report and
 the full JSON transcripts. The JSON is saved after every case.
 
+### Baselines and the gold set
+
+The checks above show whether an agent uses the server correctly. They cannot
+show whether the server makes answers *better*, because they grade answers
+against the tool results. Two more pieces answer that:
+
+- **Modes.** `--mode no-tools` runs the same model with no tools, answering from
+  its own knowledge. `--mode docs` gives it no tools either, but puts the airport
+  data for the question's airports (the same allowances and cited facts the
+  engine uses) into the prompt. `--mode mcp` (the default) is the product.
+  Comparing `docs` with `mcp` isolates what the engine adds beyond the data:
+  arithmetic, conditions, and explicit uncertainty.
+- **The gold set** (`eval/gold.json`). For each case, which conclusions a good
+  answer may reach (`workable`, `tight`, `not_workable`, `uncertain`, `ask`, …)
+  and which points it must make, written from airport and airline sources,
+  independent of the engine. Every mode is graded against it the same way, by
+  a judge that does not see tool results. The set is a **draft**: each entry
+  stays `reviewed: false` until a person has checked it.
+
+Run the three modes with the same agent and judge, then compare:
+
+```bash
+npm run eval -- <model options> --repeat 3                  # mcp
+npm run eval -- <model options> --repeat 3 --mode docs
+npm run eval -- <model options> --repeat 3 --mode no-tools
+npm run eval:compare -- eval/results/<mcp>.json eval/results/<docs>.json eval/results/<no-tools>.json
+```
+
+The comparison shows, per mode: conclusions the gold set allows, required
+points covered, connections called workable when they are not (lower is
+better), and how often every run of a case reached the same conclusion.
+`--no-gold` skips gold grading; `eval:rejudge` regrades it too.
+
 ### Reading failures
 
 ```bash

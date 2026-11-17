@@ -5,6 +5,7 @@
 //   npm run eval -- [--provider anthropic|openai|openrouter|ollama|compatible] [--model <id>]
 //                   [--base-url <url>] [--api-key-env <ENV_NAME>]
 //                   [--judge-provider <p>] [--judge-model <id>] [--judge-base-url <url>] [--judge-api-key-env <ENV>]
+//                   [--mode mcp|no-tools|docs] [--no-gold]
 //                   [--no-server-instructions] [--no-think] [--resume <results.json>]
 //                   [--only <id,...>] [--category <name>] [--limit <n>] [--repeat <n>]
 //
@@ -17,20 +18,31 @@ const { createProvider, DEFAULT_SYSTEM } = require("./providers.js");
 const { deterministicChecks } = require("./checks.js");
 const { judgeAnswer } = require("./judge.js");
 const { buildReport } = require("./report.js");
+const { loadGold, judgeGold } = require("./gold.js");
+const { docsPrompt } = require("./docs.js");
+
+// mcp: the agent uses the open-transfer-times server (the product).
+// no-tools: the same model answers from its own knowledge.
+// docs: no tools, but the airport data for the airports in the question is in the prompt.
+const MODES = ["mcp", "no-tools", "docs"];
+const NO_TOOLS_SYSTEM =
+  "You are a helpful travel assistant. Answer in the language the user writes in. You have no tools; answer from what you know.";
 
 const VALUE_FLAGS = {
   "--provider": "provider", "--model": "model", "--base-url": "baseUrl", "--api-key-env": "apiKeyEnv",
   "--judge-provider": "judgeProvider", "--judge-model": "judgeModel", "--judge-base-url": "judgeBaseUrl",
-  "--judge-api-key-env": "judgeApiKeyEnv", "--only": "only", "--category": "category", "--limit": "limit", "--repeat": "repeat"
+  "--judge-api-key-env": "judgeApiKeyEnv", "--only": "only", "--category": "category", "--limit": "limit", "--repeat": "repeat",
+  "--mode": "mode"
 };
 
 function parseArgs(argv) {
-  const args = { repeat: 1, serverInstructions: true, noThink: false };
+  const args = { repeat: 1, serverInstructions: true, noThink: false, mode: "mcp", gold: true };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
     if (flag === "--help") args.help = true;
     else if (flag === "--no-server-instructions") args.serverInstructions = false;
     else if (flag === "--no-think") args.noThink = true;
+    else if (flag === "--no-gold") args.gold = false;
     else if (flag === "--resume") {
       args.resume = argv[i + 1];
       i += 1;
@@ -71,9 +83,18 @@ const MAX_CONSECUTIVE_CONNECTION_ERRORS = 3;
  * @param {Set<string>} [options.skip]       `${id}#${run}` keys already done (when resuming)
  * @param {(result) => void} [options.onResult]  called after every case, e.g. to save progress
  */
-async function evaluate({ agent, judge, cases, repeat = 1, serverInstructions = true, skip = new Set(), onResult = () => {}, onProgress = () => {} }) {
-  const server = await connectServer();
-  const system = systemPrompt(server, serverInstructions);
+function baselineSystem(mode, testCase) {
+  if (mode === "no-tools") return NO_TOOLS_SYSTEM;
+  const docs = docsPrompt(testCase);
+  return docs ? `${NO_TOOLS_SYSTEM} Use the reference information below where it helps.\n\n${docs}` : NO_TOOLS_SYSTEM;
+}
+
+const NO_SERVER = { tools: [], client: null, instructions: null, close: async () => {} };
+
+async function evaluate({ agent, judge, cases, repeat = 1, serverInstructions = true, mode = "mcp", gold = null, skip = new Set(), onResult = () => {}, onProgress = () => {} }) {
+  if (!MODES.includes(mode)) throw new Error(`Unknown mode "${mode}". Use one of: ${MODES.join(", ")}.`);
+  const server = mode === "mcp" ? await connectServer() : NO_SERVER;
+  const mcpSystem = mode === "mcp" ? systemPrompt(server, serverInstructions) : null;
   const results = [];
   const usage = { input_tokens: 0, output_tokens: 0 };
   let connectionErrors = 0;
@@ -85,12 +106,15 @@ async function evaluate({ agent, judge, cases, repeat = 1, serverInstructions = 
         const base = { id: testCase.id, category: testCase.category, prompt: testCase.prompt, run };
         let result;
         try {
+          const system = mcpSystem || baselineSystem(mode, testCase);
           const transcript = await agent.runAgent({ server, prompt: testCase.prompt, system });
           usage.input_tokens += transcript.usage.input_tokens;
           usage.output_tokens += transcript.usage.output_tokens;
-          const deterministic = deterministicChecks(testCase, transcript);
-          const verdicts = await judgeAnswer({ judge, testCase, transcript });
-          result = { ...base, transcript, deterministic, judge: verdicts };
+          // Tool checks and the tool-grounded rubric only make sense when there are tools.
+          const deterministic = mode === "mcp" ? deterministicChecks(testCase, transcript) : [];
+          const verdicts = mode === "mcp" ? await judgeAnswer({ judge, testCase, transcript }) : {};
+          const goldResult = gold ? await judgeGold({ judge, gold, testCase, answer: transcript.answer }) : null;
+          result = { ...base, transcript, deterministic, judge: verdicts, ...(goldResult ? { gold: goldResult } : {}) };
           connectionErrors = 0;
         } catch (error) {
           const message = String(error.message || error);
@@ -129,6 +153,12 @@ Agent model:
 Judge model (defaults to the agent's provider and model):
   --judge-provider, --judge-model, --judge-base-url, --judge-api-key-env
 
+Mode (what the agent gets):
+  --mode mcp                the open-transfer-times MCP server (default)
+  --mode no-tools           nothing: the model answers from its own knowledge
+  --mode docs               no tools; the airport data for the question's airports is in the prompt
+  --no-gold                 skip grading against eval/gold.json
+
 Other:
   --no-server-instructions  do not pass the MCP server's instructions to the agent
   --no-think                ask reasoning models (e.g. qwen3) to skip their thinking phase: much faster
@@ -137,6 +167,7 @@ Other:
 
 Examples:
   npm run eval -- --limit 5
+  npm run eval -- --mode no-tools <same model options>   (then eval:compare against the mcp run)
   npm run eval -- --provider ollama --model qwen3:4b --no-think --judge-provider anthropic
   npm run eval -- <the interrupted run's options> --resume eval/results/<interrupted-run>.json
   npm run eval -- --provider openrouter --model <vendor/model> --judge-provider anthropic`;
@@ -172,6 +203,11 @@ async function main() {
 
   const { cases: all } = JSON.parse(fs.readFileSync(path.join(__dirname, "..", "cases.json"), "utf8"));
   const cases = selectCases(all, args);
+  if (!MODES.includes(args.mode)) {
+    console.error(`Unknown --mode "${args.mode}". Use one of: ${MODES.join(", ")}.`);
+    process.exit(2);
+  }
+  const gold = args.gold ? loadGold() : null;
   const serverVersion = require("../../packages/mcp/package.json").version;
   const outDir = process.env.EVAL_RESULTS_DIR || path.join(__dirname, "..", "results");
   fs.mkdirSync(outDir, { recursive: true });
@@ -180,7 +216,7 @@ async function main() {
   let startedAt = new Date().toISOString();
   let kept = [];
   let previousUsage = { input_tokens: 0, output_tokens: 0 };
-  let jsonPath = path.join(outDir, `${startedAt.replace(/[:.]/g, "-")}-${agent.name.replace(/[^a-zA-Z0-9.-]+/g, "_")}.json`);
+  let jsonPath = path.join(outDir, `${startedAt.replace(/[:.]/g, "-")}-${agent.name.replace(/[^a-zA-Z0-9.-]+/g, "_")}${args.mode === "mcp" ? "" : `-${args.mode}`}.json`);
   if (args.resume) {
     let previous;
     try {
@@ -194,7 +230,9 @@ async function main() {
       ["judge", previous.meta.judge, judge.name],
       ["server version", previous.meta.serverVersion, serverVersion],
       ["server instructions", previous.meta.serverInstructions, args.serverInstructions],
-      ["repeat", previous.meta.repeat, args.repeat]
+      ["repeat", previous.meta.repeat, args.repeat],
+      ["mode", previous.meta.mode || "mcp", args.mode],
+      ["gold", previous.meta.gold ?? false, Boolean(gold)]
     ].filter(([, before, now]) => before !== now);
     if (mismatches.length) {
       console.error("Cannot resume: the settings differ from the interrupted run, so the results would not be comparable:");
@@ -215,13 +253,14 @@ async function main() {
     for (let run = 1; run <= args.repeat; run += 1) if (skip.has(runKey(testCase.id, run))) count += 1;
     return count;
   }, 0);
-  console.error(`Running ${totalRuns - alreadyDone} of ${totalRuns} run(s) with ${agent.name} (judge: ${judge.name})` +
+  console.error(`Running ${totalRuns - alreadyDone} of ${totalRuns} run(s) with ${agent.name} (judge: ${judge.name}), mode ${args.mode}` +
     `${args.serverInstructions ? "" : ", without server instructions"}${args.noThink ? ", no thinking" : ""}`);
   console.error(`Progress is saved after every case to ${path.relative(process.cwd(), jsonPath)}`);
 
   const meta = (status, usage) => ({
     agent: agent.name, judge: judge.name, serverVersion, serverInstructions: args.serverInstructions,
-    noThink: args.noThink, repeat: args.repeat, startedAt, status,
+    noThink: args.noThink, repeat: args.repeat, startedAt, status, mode: args.mode, gold: Boolean(gold),
+    goldStatus: gold?.status,
     usage: { input_tokens: previousUsage.input_tokens + usage.input_tokens, output_tokens: previousUsage.output_tokens + usage.output_tokens }
   });
   const fresh = [];
@@ -232,14 +271,14 @@ async function main() {
   };
 
   const { usage, stoppedEarly } = await evaluate({
-    agent, judge, cases, repeat: args.repeat, serverInstructions: args.serverInstructions, skip,
+    agent, judge, cases, repeat: args.repeat, serverInstructions: args.serverInstructions, mode: args.mode, gold, skip,
     onResult: (result, usageSoFar) => {
       fresh.push(result);
       save("partial", usageSoFar);
     },
     onProgress: (result) => {
       const failed = result.deterministic.filter((check) => !check.passed).length +
-        Object.values(result.judge || {}).filter((item) => item.verdict === "fail" || item.verdict === "error").length;
+        Object.values({ ...result.judge, ...result.gold?.items }).filter((item) => item.verdict === "fail" || item.verdict === "error").length;
       console.error(`${failed ? "✗" : "✓"} ${result.id}${args.repeat > 1 ? ` #${result.run}` : ""}${failed ? ` (${failed} failed)` : ""}`);
     }
   });
@@ -268,4 +307,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { evaluate, parseArgs, selectCases, systemPrompt, orderResults, runKey };
+module.exports = { evaluate, parseArgs, selectCases, systemPrompt, orderResults, runKey, baselineSystem, MODES };

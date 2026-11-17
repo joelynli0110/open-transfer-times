@@ -1,0 +1,428 @@
+{
+  "status": "draft",
+  "note": "Expected outcomes written from airport and airline sources and general airline practice, independent of the engine's output. Each case stays 'reviewed: false' until a person has checked it. profile-list-zh is product-specific and not in the gold set.",
+  "outcomes": {
+    "workable": "fine to go ahead, enough time",
+    "tight": "possible but little slack; warns",
+    "not_workable": "advises against it or says it will likely not work",
+    "uncertain": "says it cannot be judged reliably without more data",
+    "ask": "asks for missing information instead of judging",
+    "info": "answers a factual question",
+    "ranking": "ranks or picks between options"
+  },
+  "cases": {
+    "times-ist-protected-zh": {
+      "outcome": [
+        "workable",
+        "tight"
+      ],
+      "must": [],
+      "basis": "75 min at IST on one ticket; Turkish Airlines' published minimum for international connections at IST is about an hour, so it works with little slack.",
+      "reviewed": false
+    },
+    "times-ist-protected-en": {
+      "outcome": [
+        "workable",
+        "tight"
+      ],
+      "must": [],
+      "basis": "Same as times-ist-protected-zh.",
+      "reviewed": false
+    },
+    "times-lhr-terminals-en": {
+      "outcome": [
+        "tight",
+        "not_workable"
+      ],
+      "must": [
+        "Mentions the change from Terminal 2 to Terminal 5 (transfer bus).",
+        "Mentions the security check that every connecting passenger at Heathrow goes through."
+      ],
+      "basis": "Heathrow: all connecting passengers are screened again; T2→T5 needs the transfer bus. 75 min is short for that.",
+      "reviewed": false
+    },
+    "times-fra-schengen-zh": {
+      "outcome": [
+        "tight",
+        "not_workable"
+      ],
+      "must": [
+        "Mentions passport control when leaving the Schengen area in Frankfurt."
+      ],
+      "basis": "Berlin (Schengen) to Shanghai (non-Schengen) at FRA: passport control on exit; 55 min leaves little slack.",
+      "reviewed": false
+    },
+    "times-overnight-en": {
+      "outcome": [
+        "workable",
+        "tight"
+      ],
+      "must": [
+        "Treats 23:40 to 01:05 as about 85 minutes across midnight."
+      ],
+      "basis": "85 min at DOH on one ticket is above Qatar Airways' usual minimum.",
+      "reviewed": false
+    },
+    "times-muc-transatlantic-en": {
+      "outcome": [
+        "tight",
+        "workable"
+      ],
+      "must": [
+        "Mentions passport control on entering the Schengen area in Munich."
+      ],
+      "basis": "JFK→MUC→BER: entry into Schengen at MUC; 70 min on one ticket is tight but sold.",
+      "reviewed": false
+    },
+    "duration-fra-50-zh": {
+      "outcome": [
+        "tight",
+        "not_workable"
+      ],
+      "must": [
+        "Mentions passport control when leaving the Schengen area."
+      ],
+      "basis": "50 min at FRA, Schengen to non-Schengen: very little slack.",
+      "reviewed": false
+    },
+    "duration-doh-2h-en": {
+      "outcome": [
+        "workable"
+      ],
+      "must": [],
+      "basis": "2 h at DOH is comfortable.",
+      "reviewed": false
+    },
+    "duration-ams-75-en": {
+      "outcome": [
+        "workable",
+        "tight"
+      ],
+      "must": [
+        "Mentions passport control when leaving the Schengen area."
+      ],
+      "basis": "BER→AMS→New York: Schengen exit at AMS; KLM sells shorter connections.",
+      "reviewed": false
+    },
+    "duration-nrt-90-zh": {
+      "outcome": [
+        "workable",
+        "tight"
+      ],
+      "must": [],
+      "basis": "90 min at NRT on the way to the US is usually enough; a terminal change makes it tighter.",
+      "reviewed": false
+    },
+    "duration-hkg-60-en": {
+      "outcome": [
+        "tight",
+        "workable"
+      ],
+      "must": [],
+      "basis": "60 min at HKG includes another security check; tight.",
+      "reviewed": false
+    },
+    "duration-sin-45-zh": {
+      "outcome": [
+        "tight",
+        "not_workable"
+      ],
+      "must": [],
+      "basis": "45 min at SIN is at the edge; gate security at Changi.",
+      "reviewed": false
+    },
+    "separate-ist-bags-zh": {
+      "outcome": [
+        "not_workable"
+      ],
+      "must": [
+        "Warns that on separate tickets a missed connection is not protected (the second airline need not rebook or refund).",
+        "Explains that collecting and re-checking bags (with check-in closing before departure) takes a large part of the 75 minutes."
+      ],
+      "basis": "Self-transfer with bags at IST: entry, baggage claim, check-in (closes about an hour before departure), exit, security.",
+      "reviewed": false
+    },
+    "separate-lhr-en": {
+      "outcome": [
+        "workable",
+        "tight"
+      ],
+      "must": [
+        "Warns that on separate tickets a missed connection is not protected (the second airline need not rebook or refund)."
+      ],
+      "basis": "3 h at LHR with hand luggage only is usually enough, but separate tickets are unprotected.",
+      "reviewed": false
+    },
+    "separate-dxb-bags-en": {
+      "outcome": [
+        "tight",
+        "not_workable",
+        "uncertain"
+      ],
+      "must": [
+        "Warns that on separate tickets a missed connection is not protected (the second airline need not rebook or refund).",
+        "Mentions that collecting and re-checking the suitcase means entering the country (immigration) and checking in again."
+      ],
+      "basis": "Self-transfer with bags at DXB: immigration, baggage claim, check-in, exit and security in 2.5 h.",
+      "reviewed": false
+    },
+    "separate-unknown-ticket-zh": {
+      "outcome": [
+        "tight",
+        "workable",
+        "uncertain",
+        "ask"
+      ],
+      "must": [
+        "Explains that whether both flights are on one ticket matters (protection if the connection is missed)."
+      ],
+      "basis": "MUC 90 min, JFK→BER: entry into Schengen; ticket status decides who bears the risk.",
+      "reviewed": false
+    },
+    "low-vie-zh": {
+      "outcome": [
+        "workable",
+        "tight",
+        "uncertain"
+      ],
+      "must": [],
+      "basis": "60 min at VIE, Schengen exit; Austrian sells shorter connections.",
+      "reviewed": false
+    },
+    "low-bkk-en": {
+      "outcome": [
+        "workable",
+        "uncertain"
+      ],
+      "must": [],
+      "basis": "3 h at BKK is plenty for most connections.",
+      "reviewed": false
+    },
+    "low-cph-en": {
+      "outcome": [
+        "workable",
+        "uncertain"
+      ],
+      "must": [],
+      "basis": "2 h at CPH, Schengen to Schengen (Iceland is in Schengen): plenty.",
+      "reviewed": false
+    },
+    "low-unknown-route-zh": {
+      "outcome": [
+        "workable",
+        "tight",
+        "uncertain"
+      ],
+      "must": [],
+      "basis": "2 h at ADD is usually enough on Ethiopian.",
+      "reviewed": false
+    },
+    "low-zrh-en": {
+      "outcome": [
+        "tight",
+        "not_workable",
+        "uncertain"
+      ],
+      "must": [
+        "Mentions passport control when leaving the Schengen area."
+      ],
+      "basis": "50 min at ZRH, Schengen exit to the US: tight.",
+      "reviewed": false
+    },
+    "scope-fra-lh-pvg-zh": {
+      "outcome": [
+        "tight",
+        "workable"
+      ],
+      "must": [
+        "Does not treat Lufthansa's 60-minute minimum as settling it for this route: it applies to intra-European and certain Schengen–US/Singapore/South Africa connections, not Shanghai."
+      ],
+      "basis": "Lufthansa's 60-minute FRA MCT covers intra-European and Schengen to US/SG/ZA connections.",
+      "reviewed": false
+    },
+    "scope-ist-pegasus-en": {
+      "outcome": [
+        "not_workable",
+        "tight"
+      ],
+      "must": [
+        "Says passport control is not skipped: on separate tickets the passenger enters Turkey and checks in again.",
+        "Warns that on separate tickets a missed connection is not protected (the second airline need not rebook or refund)."
+      ],
+      "basis": "Separate tickets at IST: no through-check; Pegasus mostly uses Sabiha Gökçen (SAW), a different airport, which is worth checking.",
+      "reviewed": false
+    },
+    "scope-lhr-mct-en": {
+      "outcome": [
+        "tight",
+        "not_workable",
+        "uncertain",
+        "ask"
+      ],
+      "must": [
+        "Says Heathrow does not publish one official minimum connection time; airlines set their own."
+      ],
+      "basis": "Heathrow publishes no single MCT; 70 min with re-screening and a possible terminal change is short.",
+      "reviewed": false
+    },
+    "scope-doh-gate-zh": {
+      "outcome": [
+        "tight",
+        "not_workable"
+      ],
+      "must": [
+        "Does not state a specific gate-closing time as fact unless it attributes it to the airline."
+      ],
+      "basis": "50 min at DOH; gate closing times are set by the airline.",
+      "reviewed": false
+    },
+    "compare-three-durations-zh": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Ranks Frankfurt 50 minutes last or advises against it.",
+        "Treats Istanbul 3 h and Doha 2 h as the safer options."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "compare-protection-en": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Prefers option B (one ticket, 3 h) because a missed connection is protected."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "compare-data-quality-en": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Does not call either 2-hour connection unworkable."
+      ],
+      "basis": "2 h at VIE or MUC on one ticket are both normally fine; data quality differs.",
+      "reviewed": false
+    },
+    "compare-times-en": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Puts Doha (2 h 15) first.",
+        "Puts Dubai (55 min) last or flags it as the tightest."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "compare-four-zh": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Ranks Frankfurt 1 hour last or flags it as the tightest."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "multi-stop-en": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Identifies the 50-minute connection in Doha as the problem."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "multi-stop-zh": {
+      "outcome": [
+        "ranking"
+      ],
+      "must": [
+        "Identifies the 1-hour connection in Frankfurt as the risky one (entry into Schengen, security)."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "clarify-no-airport-zh": {
+      "outcome": [
+        "ask"
+      ],
+      "must": [
+        "Asks which connection airport."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "clarify-no-duration-en": {
+      "outcome": [
+        "ask",
+        "info"
+      ],
+      "must": [
+        "Asks for the layover length or route, or says the answer depends on them."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "profile-lhr-en": {
+      "outcome": [
+        "info"
+      ],
+      "must": [
+        "Says yes: all connecting passengers at Heathrow go through security again.",
+        "Attributes this to Heathrow's official information."
+      ],
+      "basis": "heathrow.com: connecting flights",
+      "reviewed": false
+    },
+    "dst-fra-spring-en": {
+      "outcome": [
+        "tight",
+        "not_workable"
+      ],
+      "must": [
+        "Says the actual layover is about 1 hour because clocks go forward that night (29 March 2026)."
+      ],
+      "basis": "EU summer time starts 29 March 2026 at 02:00: 01:30→03:30 local is 60 real minutes.",
+      "reviewed": false
+    },
+    "separate-bags-unknown-zh": {
+      "outcome": [
+        "uncertain",
+        "ask",
+        "tight"
+      ],
+      "must": [
+        "Warns that on separate tickets a missed connection is not protected (the second airline need not rebook or refund).",
+        "Explains that the answer depends on whether bags must be collected and checked in again."
+      ],
+      "basis": "",
+      "reviewed": false
+    },
+    "mct-lh-fra-en": {
+      "outcome": [
+        "not_workable"
+      ],
+      "must": [
+        "Says 50 minutes is below Lufthansa's 60-minute minimum connection time at Frankfurt."
+      ],
+      "basis": "Lufthansa FRA MCT 60 min for intra-European connections since 30 March 2025.",
+      "reviewed": false
+    },
+    "mct-lh-fra-zh": {
+      "outcome": [
+        "not_workable"
+      ],
+      "must": [
+        "Says 50 minutes is below Lufthansa's 60-minute minimum connection time at Frankfurt."
+      ],
+      "basis": "Same as mct-lh-fra-en.",
+      "reviewed": false
+    }
+  }
+}

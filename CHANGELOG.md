@@ -3,6 +3,19 @@
 
 
 
+
+## Unreleased
+
+- **Eval baselines:** `--mode no-tools` (same model, no tools) and `--mode docs`
+  (no tools, the airport data in the prompt) next to `--mode mcp`, to measure
+  whether the server makes answers better rather than only whether agents use
+  it correctly.
+- **Gold set** (`eval/gold.json`, draft): expected conclusions and required
+  points per case, written from sources and independent of the engine. Every
+  mode is graded against it by a judge that does not see tool results.
+  Reports and comparisons show conclusions allowed, points covered, unsafe
+  "workable" calls and run-to-run consistency.
+
 ## 0.4.1 (open-transfer-times-mcp only)
 
 Two input checks that were too strict, found in the 0.4.0 evaluation.

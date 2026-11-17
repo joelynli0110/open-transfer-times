@@ -55,7 +55,8 @@ function anthropicProvider({ client, model, maxTokens = 2048 }) {
       const calls = [];
       const usage = { input_tokens: 0, output_tokens: 0 };
       for (let turn = 0; turn < maxTurns; turn += 1) {
-        const response = await client.messages.create({ model, max_tokens: maxTokens, system, tools, messages });
+        // Baseline runs have no tools; some APIs reject an empty tools list.
+        const response = await client.messages.create({ model, max_tokens: maxTokens, system, ...(tools.length ? { tools } : {}), messages });
         usage.input_tokens += response.usage?.input_tokens || 0;
         usage.output_tokens += response.usage?.output_tokens || 0;
         messages.push({ role: "assistant", content: response.content });
@@ -151,7 +152,7 @@ function openAICompatibleProvider({ baseUrl, apiKey, model, label, fetchImpl = g
       const calls = [];
       const usage = { input_tokens: 0, output_tokens: 0 };
       for (let turn = 0; turn < maxTurns; turn += 1) {
-        const data = await chat({ messages, tools });
+        const data = await chat({ messages, ...(tools.length ? { tools } : {}) });
         usage.input_tokens += data.usage?.prompt_tokens || 0;
         usage.output_tokens += data.usage?.completion_tokens || 0;
         const choice = data.choices?.[0];

@@ -10,14 +10,15 @@
 // runs over different case sets stay comparable.
 
 const fs = require("node:fs");
-const { caseOutcome } = require("./report.js");
+const { caseOutcome, goldSummary } = require("./report.js");
 
 function pct(passed, total) {
   return total ? `${Math.round((passed / total) * 100)}% (${passed}/${total})` : "–";
 }
 
 function label(meta) {
-  return `${meta.agent}${meta.serverInstructions === false ? " (no instructions)" : ""} · ${meta.serverVersion}`;
+  const mode = meta.mode && meta.mode !== "mcp" ? ` · ${meta.mode}` : "";
+  return `${meta.agent}${meta.serverInstructions === false ? " (no instructions)" : ""} · ${meta.serverVersion}${mode}`;
 }
 
 function compareRuns(runs) {
@@ -36,7 +37,14 @@ function compareRuns(runs) {
     if (errors) lines.push(`**Warning:** ${label(runs[index].meta)} has ${errors} run(s) with judge errors, counted as failures. Regrade them with \`npm run eval:rejudge -- <file> <judge options> --errors-only\`.`);
   });
   lines.push("", `| | ${runs.map((run) => label(run.meta)).join(" | ")} |`, `| --- |${runs.map(() => " --- |").join("")}`);
-  lines.push(`| **Runs passing every check** | ${outcomes.map((list) => `**${pct(list.filter((o) => o.passed).length, list.length)}**`).join(" | ")} |`);
+  const golds = outcomes.map((list) => goldSummary(list.map((o) => o.result)));
+  if (golds.some((gold) => gold.graded)) {
+    const row = (title, key) => `| ${title} | ${golds.map((gold) => (gold.graded ? pct(gold[key].passed, gold[key].total) : "–")).join(" | ")} |`;
+    lines.push(row("**Gold: conclusion allowed**", "outcome"), row("Gold: required points covered", "points"),
+      row("Gold: called workable when it is not (lower is better)", "unsafe"), row("Gold: same conclusion in every run", "consistent"));
+  }
+  const isMcp = (index) => (runs[index].meta.mode || "mcp") === "mcp";
+  lines.push(`| **Runs passing every check** | ${outcomes.map((list, index) => (isMcp(index) ? `**${pct(list.filter((o) => o.passed).length, list.length)}**` : "– (no tools)")).join(" | ")} |`);
 
   const checkIds = [...new Set(outcomes.flatMap((list) => list.flatMap((o) => o.checks.map((c) => `${c.kind}:${c.id}`))))].sort();
   for (const key of checkIds) {
