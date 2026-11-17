@@ -201,6 +201,10 @@ function appliedSteps(result) {
   return result.checks
     .filter((check) => !NOT_APPLIED_DETAIL.test(check.detail))
     .map((check) => {
+      // Landside steps of a self-transfer carry their own minutes (border and security estimates).
+      if (check.code.startsWith("LANDSIDE_") && Number.isFinite(check.minutes)) {
+        return { code: check.code, label: check.label, minutes: check.minutes, basis: "heuristic", supporting_facts: [] };
+      }
       if (Object.hasOwn(FIXED_STEP_MINUTES, check.code)) {
         return { code: check.code, label: check.label, minutes: FIXED_STEP_MINUTES[check.code], basis: "heuristic", supporting_facts: [] };
       }
@@ -336,6 +340,13 @@ function summarize(assessment) {
     insufficient
       ? `${assessment.route}: INSUFFICIENT DATA — ${confidenceReasons} The result cannot be relied on.`
       : `${assessment.route}: ${decisionLabel(assessment)} — ${assessment.decision.reasons.map((reason) => reason.explanation).join(" ")}`,
+    // Warnings the user must hear get their own instruction line (0.4.1 eval: "avoid" was retold as "tight",
+    // and a clock change was ignored in favour of the clock difference).
+    ...(assessment.decision.value === "avoid"
+      ? ["Tell the user plainly that this connection is not advisable, and why. Do not describe it as merely tight."] : []),
+    ...(assessment.wall_clock_layover_minutes !== undefined && assessment.wall_clock_layover_minutes !== assessment.layover_minutes
+      ? [`Clock change: local clocks show ${assessment.wall_clock_layover_minutes} min between the flights, but only ${assessment.layover_minutes} min actually pass. Tell the user the real layover is ${assessment.layover_minutes} min, not ${assessment.wall_clock_layover_minutes}.`]
+      : []),
     insufficient
       ? "Do not call this connection safe, fine or comfortable. Tell the user the estimate is unreliable, why, and what would settle it."
       : `Rating: ${assessment.quality.toUpperCase()} — ${assessment.verdict}${RELIABLE[assessment.decision.value] ? "" : " (not a recommendation: see the decision)"}`,

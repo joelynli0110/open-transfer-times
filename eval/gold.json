@@ -1,10 +1,10 @@
 {
   "status": "draft",
-  "note": "Expected outcomes written from airport and airline sources and general airline practice, independent of the engine's output. Each case stays 'reviewed: false' until a person has checked it. profile-list-zh is product-specific and not in the gold set.",
+  "note": "Expected outcomes written from airport and airline sources and general airline practice, independent of the engine's output. Each case stays 'reviewed: false' until a person has checked it. profile-list-zh is product-specific and not in the gold set. Changes after the first comparison run are listed in 'changes' with their reasons; they correct the gold set itself and were not made to favour any mode.",
   "outcomes": {
     "workable": "fine to go ahead, enough time",
-    "tight": "possible but little slack; warns",
-    "not_workable": "advises against it or says it will likely not work",
+    "tight": "says it can work, with little slack",
+    "not_workable": "advises against booking it, or says it will probably not work (even if it adds that it might be possible)",
     "uncertain": "says it cannot be judged reliably without more data",
     "ask": "asks for missing information instead of judging",
     "info": "answers a factual question",
@@ -330,6 +330,8 @@
     },
     "multi-stop-en": {
       "outcome": [
+        "tight",
+        "not_workable",
         "ranking"
       ],
       "must": [
@@ -340,6 +342,8 @@
     },
     "multi-stop-zh": {
       "outcome": [
+        "tight",
+        "not_workable",
         "ranking"
       ],
       "must": [
@@ -406,23 +410,54 @@
     },
     "mct-lh-fra-en": {
       "outcome": [
-        "not_workable"
+        "not_workable",
+        "tight"
       ],
       "must": [
         "Says 50 minutes is below Lufthansa's 60-minute minimum connection time at Frankfurt."
       ],
-      "basis": "Lufthansa FRA MCT 60 min for intra-European connections since 30 March 2025.",
+      "basis": "Lufthansa FRA MCT 60 min for intra-European connections since 30 March 2025. Lufthansa would not normally sell this on one ticket; if it is already booked (e.g. after a schedule change), the airline protects it, so 'tight' with the MCT point is also acceptable.",
       "reviewed": false
     },
     "mct-lh-fra-zh": {
       "outcome": [
-        "not_workable"
+        "not_workable",
+        "tight"
       ],
       "must": [
         "Says 50 minutes is below Lufthansa's 60-minute minimum connection time at Frankfurt."
       ],
-      "basis": "Same as mct-lh-fra-en.",
+      "basis": "Same as mct-lh-fra-en. Lufthansa would not normally sell this on one ticket; if it is already booked (e.g. after a schedule change), the airline protects it, so 'tight' with the MCT point is also acceptable.",
       "reviewed": false
     }
-  }
+  },
+  "revision": 2,
+  "changes": [
+    {
+      "revision": 2,
+      "cases": [
+        "multi-stop-en",
+        "multi-stop-zh"
+      ],
+      "change": "allow tight and not_workable as well as ranking",
+      "reason": "The questions ask whether one itinerary works, not which option to pick; 'ranking' alone was the wrong label set."
+    },
+    {
+      "revision": 2,
+      "cases": [
+        "mct-lh-fra-en",
+        "mct-lh-fra-zh"
+      ],
+      "change": "allow tight",
+      "reason": "Decided by the maintainer: a sub-MCT connection that is already booked on one ticket is protected, so 'tight' plus the required MCT point is a fair answer."
+    },
+    {
+      "revision": 2,
+      "cases": [
+        "*"
+      ],
+      "change": "sharper definitions of tight and not_workable",
+      "reason": "Answers saying 'very tight, probably not enough, choose a longer connection' were labelled inconsistently; advising against booking now counts as not_workable."
+    }
+  ]
 }

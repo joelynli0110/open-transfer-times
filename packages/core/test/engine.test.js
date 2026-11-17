@@ -205,12 +205,13 @@ test("separate tickets with unknown bags: flagged only when a re-check would mak
   );
   const tightIfRechecked = at(100, { ticketStatus: "separate" });
   assert.equal(tightIfRechecked.baggageRecheck, "unknown");
-  assert.deepEqual(tightIfRechecked.ifBaggageRecheck, { bufferMinutes: 10, quality: "tight" });
+  // Re-checking on separate tickets at IST means entry control, check-in, exit control and security (0.5.0).
+  assert.deepEqual(tightIfRechecked.ifBaggageRecheck, { bufferMinutes: -35, quality: "risky" });
   assert.equal(tightIfRechecked.confidence.level, "low");
-  assert.match(tightIfRechecked.confidence.reasons.find((reason) => reason.code === "BAGGAGE_UNKNOWN").explanation, /margin would be 10 min \(tight\)/);
+  assert.match(tightIfRechecked.confidence.reasons.find((reason) => reason.code === "BAGGAGE_UNKNOWN").explanation, /margin would be -35 min \(risky\)/);
   assert.equal(tightIfRechecked.decision.value, "insufficient_data");
 
-  const fineEitherWay = at(150, { ticketStatus: "separate" });
+  const fineEitherWay = at(240, { ticketStatus: "separate" });
   assert.equal(fineEitherWay.confidence.level, "medium");
   assert.equal(fineEitherWay.decision.value, "caution");
 
@@ -291,7 +292,9 @@ test("unknown terminals become a possible step: the margin is a range, never a s
   // Separate tickets with unknown bags and terminals: the worst case adds both.
   const both = assessConnection(itinerary("BER", "LHR", "PVG", "2026-09-20T10:00", "2026-09-20T13:00"), { ticketStatus: "separate" });
   assert.deepEqual(both.possibleSteps.map((step) => step.code), ["TERMINAL_CHANGE", "BAGGAGE_RECHECK"]);
-  assert.equal(both.worstCase.bufferMinutes, both.structuralBufferMinutes - 25 - 45);
+  const recheck = both.possibleSteps.find((step) => step.code === "BAGGAGE_RECHECK");
+  assert.equal(recheck.minutes, 45 + 20 + 20, "bags, entry control and exit control (security already counted airside)");
+  assert.equal(both.worstCase.bufferMinutes, both.structuralBufferMinutes - 25 - recheck.minutes);
 });
 
 test("applies_when uses three-valued logic: airline and route can each rule an MCT in or out", () => {
@@ -322,4 +325,23 @@ test("AMS screens transfer passengers again depending on where they arrive from"
   // An origin the catalog does not know leaves it open: a possible step, not a silent "no".
   const unknown = at("ZZZ", "NBO");
   assert.deepEqual(unknown.possibleSteps.map((step) => step.code), ["SECURITY_RESCREENING"]);
+});
+
+test("a self-transfer with bags goes landside: entry, exit and security, without counting a border twice", () => {
+  const trip = (from, via, to, minutes) => assessConnection(itinerary(from, via, to, "2026-09-20T10:00",
+    new Date(Date.parse("2026-09-20T10:00Z") + minutes * 60000).toISOString().slice(0, 16)), { ticketStatus: "separate", baggageRecheck: true });
+  const codes = (result) => result.checks.map((check) => check.code);
+  // Dubai: arrive from Germany, leave for Thailand: enter and leave the UAE.
+  const dxb = trip("FRA", "DXB", "BKK", 150);
+  assert.ok(["LANDSIDE_ENTRY", "LANDSIDE_EXIT", "LANDSIDE_SECURITY"].every((code) => codes(dxb).includes(code)));
+  assert.equal(dxb.quality, "tight", "2.5 h with a landside self-transfer is no longer comfortable");
+  // Frankfurt from New York to Berlin: entering Schengen is already counted airside; Berlin is domestic.
+  const fra = trip("JFK", "FRA", "BER", 180);
+  assert.ok(!codes(fra).includes("LANDSIDE_ENTRY") && !codes(fra).includes("LANDSIDE_EXIT"));
+  assert.ok(codes(fra).includes("LANDSIDE_SECURITY"));
+  // Inside Schengen: no border at all, only security.
+  assert.deepEqual(codes(trip("MUC", "FRA", "BER", 120)).filter((code) => code.startsWith("LANDSIDE")), ["LANDSIDE_SECURITY"]);
+  // One ticket: bags are through-checked, nothing landside.
+  const protectedTrip = assessConnection(itinerary("FRA", "DXB", "BKK", "2026-09-20T10:00", "2026-09-20T12:30"), { ticketStatus: "protected" });
+  assert.ok(!codes(protectedTrip).some((code) => code.startsWith("LANDSIDE")));
 });

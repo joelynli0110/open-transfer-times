@@ -4,7 +4,27 @@
 
 
 
-## Unreleased
+## Unreleased (0.5.0)
+
+From the first three-way comparison (MCP, airport data in the prompt, no
+tools) against the gold set. Plain `gpt-4.1-mini` without tools judged two
+cases better than with the server: a self-transfer with bags at Dubai and a
+night when clocks go forward. Both were the server's fault.
+
+- **Self-transfers with bags go landside.** On separate tickets, re-checking
+  bags now counts entry control, exit control and departure security, not only
+  the bag belt: 20 min per border crossing (when not already counted airside)
+  and security up to 15 min. 2.5 h at Dubai with bags now comes out `tight`
+  instead of `comfortable`; 75 min at Istanbul `avoid`. Visa needs are not
+  checked.
+- **Instruction lines for warnings agents dropped.** An `avoid` decision adds
+  "Tell the user plainly that this connection is not advisable … not merely
+  tight". A clock change gets its own line right after the decision with the
+  real layover.
+- **Gold set revision 2:** multi-stop questions accept a verdict on the
+  itinerary, the Lufthansa-MCT questions accept `tight`, and `tight` /
+  `not_workable` have sharper definitions. Each change and its reason is
+  listed in `eval/gold.json`.
 
 - **MCP 0.4.2: works with flight-search tools.** The server instructions say how
   to pass itineraries from a flight search (e.g. fli) to `compare_connections`:

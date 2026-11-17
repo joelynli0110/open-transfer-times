@@ -16,6 +16,10 @@
 
   const { AIRPORT_RULES, FALLBACK_RULE, travelZone } = rulesModule;
   const BAGGAGE_RECHECK_MINUTES = 45;
+  // A self-transfer with checked bags goes landside: entry, check-in, exit and security, not only the bag belt.
+  // Airports with a 0-minute airside passport allowance (IST, DXB) still have border control landside.
+  const LANDSIDE_BORDER_MINUTES = 20;
+  const LANDSIDE_SECURITY_MINUTES = 15;
 
   function wallClockTimestamp(value) {
     const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/);
@@ -182,18 +186,32 @@
       || itinerary.baggageEvidence?.recheckRequired === false
       || itinerary.baggageEvidence?.throughChecked === true;
     const baggageRecheck = baggageRecheckRequired ? "required" : baggageRecheckRuledOut ? "not_required" : "unknown";
+    // On separate tickets, re-checking bags means leaving the airside: entering the country, checking in, then
+    // exit control and security again. Counted on top of what the airside transfer already counted.
+    const landside = ticketStatus === "separate"
+      ? landsideSteps({ trip, connectionAirport, rule, crossesSchengenBorder, airsideSecurity: securityState === "applies" ? rule.securityMinutes : 0 })
+      : { steps: [], minutes: 0 };
     if (baggageRecheckRequired) {
       deductions += BAGGAGE_RECHECK_MINUTES;
       processFactors.push(factor("BAGGAGE_RECHECK", "Collect bags and check in again", "high", "Baggage collection and re-check are explicit physical transfer steps."));
       checks.push(check("BAGGAGE_RECHECK", "Collect bags and check in again", "Required", layoverMinutes >= deductions));
+      for (const step of landside.steps) {
+        deductions += step.minutes;
+        checks.push({ ...check(step.code, step.label, `${step.minutes} min estimate`, layoverMinutes >= deductions), minutes: step.minutes });
+      }
+      if (landside.steps.some((step) => step.code === "LANDSIDE_ENTRY")) {
+        processFactors.push(factor("LANDSIDE_ENTRY", "Entering the country to re-check bags", "high",
+          "Collecting bags on separate tickets means passing entry control; whether a visa is needed is not checked."));
+      }
     }
 
     const structuralBufferMinutes = layoverMinutes - deductions;
     const quality = qualityForBuffer(structuralBufferMinutes);
     // On separate tickets, bags usually have to be collected and checked in again.
     // When nobody said either way, check whether that would change the rating.
+    const recheckMinutes = BAGGAGE_RECHECK_MINUTES + landside.minutes;
     const baggageWhatIf = ticketStatus === "separate" && baggageRecheck === "unknown"
-      ? { bufferMinutes: structuralBufferMinutes - BAGGAGE_RECHECK_MINUTES, quality: qualityForBuffer(structuralBufferMinutes - BAGGAGE_RECHECK_MINUTES) }
+      ? { bufferMinutes: structuralBufferMinutes - recheckMinutes, quality: qualityForBuffer(structuralBufferMinutes - recheckMinutes) }
       : null;
     // Only matters when a re-check would push the connection into tight or risky.
     const baggageCouldChangeRating = Boolean(baggageWhatIf && baggageWhatIf.quality !== quality
@@ -208,7 +226,12 @@
       possibleSteps.push({ code: "SECURITY_RESCREENING", label: "Another security check", minutes: rule.securityMinutes, unknown: "Depends on where the flight arrives from" });
     }
     if (baggageWhatIf) {
-      possibleSteps.push({ code: "BAGGAGE_RECHECK", label: "Collect bags and check in again", minutes: BAGGAGE_RECHECK_MINUTES, unknown: "Bags not stated" });
+      possibleSteps.push({
+        code: "BAGGAGE_RECHECK",
+        label: landside.steps.length ? `Collect bags and check in again (with ${landside.steps.map((step) => step.short).join(", ")})` : "Collect bags and check in again",
+        minutes: recheckMinutes,
+        unknown: "Bags not stated"
+      });
     }
     const worstBuffer = structuralBufferMinutes - possibleSteps.reduce((sum, step) => sum + step.minutes, 0);
     const worstCase = possibleSteps.length ? { bufferMinutes: worstBuffer, quality: qualityForBuffer(worstBuffer) } : null;
@@ -383,6 +406,36 @@
       if (!reasons.length) reasons.push("CLEAR");
     }
     return { value, reasons: reasons.map((code) => ({ code, explanation: DECISION_REASONS[code] })) };
+  }
+
+  // Steps a self-transfer with bags adds landside. International = the airport's country differs from the other
+  // end's, and the move is not inside Schengen. Border crossings already counted airside are not counted twice.
+  function landsideSteps({ trip, connectionAirport, rule, crossesSchengenBorder, airsideSecurity }) {
+    const here = rulesModule.countryForAirport(connectionAirport);
+    const hereZone = travelZone(connectionAirport);
+    const international = (other) => {
+      const country = rulesModule.countryForAirport(other);
+      if (!here || !country) return true; // unknown: assume a border, the cautious side
+      if (country === here) return false;
+      return !(hereZone === "schengen" && travelZone(other) === "schengen");
+    };
+    const borderMinutes = rule.passportMinutes > 0 ? rule.passportMinutes : LANDSIDE_BORDER_MINUTES;
+    const steps = [];
+    let alreadyCounted = crossesSchengenBorder ? 1 : 0;
+    for (const [code, label, short, other] of [
+      ["LANDSIDE_ENTRY", "Pass entry control to collect bags", "entry control", trip.origin],
+      ["LANDSIDE_EXIT", "Pass exit control after checking in", "exit control", trip.destination]
+    ]) {
+      if (!international(other)) continue;
+      if (alreadyCounted > 0) {
+        alreadyCounted -= 1;
+        continue;
+      }
+      steps.push({ code, label, short, minutes: borderMinutes });
+    }
+    const security = Math.max(LANDSIDE_SECURITY_MINUTES - airsideSecurity, 0);
+    if (security > 0) steps.push({ code: "LANDSIDE_SECURITY", label: "Go through departure security", short: "security", minutes: security });
+    return { steps, minutes: steps.reduce((sum, step) => sum + step.minutes, 0) };
   }
 
   function normalizeAirline(code) {

@@ -94,7 +94,10 @@ test("separate tickets change the verdict and baggage re-check consumes time", a
     const single = (await client.callTool({ name: "check_connection", arguments: base })).structuredContent;
     const separate = (await client.callTool({ name: "check_connection", arguments: { ...base, ticket: "separate", baggage_recheck: true } })).structuredContent;
     assert.equal(separate.ticket.status, "separate");
-    assert.equal(separate.transfer_process_minutes, single.transfer_process_minutes + 45);
+    // Bags (45) plus the landside steps of a self-transfer: entry and exit control (20 each at LHR).
+    assert.equal(separate.transfer_process_minutes, single.transfer_process_minutes + 45 + 20 + 20);
+    assert.deepEqual(separate.steps.filter((step) => step.code.startsWith("LANDSIDE_")).map((step) => [step.code, step.minutes]),
+      [["LANDSIDE_ENTRY", 20], ["LANDSIDE_EXIT", 20]]);
     assert.ok(separate.factors.some((factor) => factor.code === "BAGGAGE_RECHECK"));
   } finally {
     await close();
@@ -348,7 +351,8 @@ test("check_connection reports the decision and the real layover across a clock 
     assert.equal(data.layover_basis, "timezone");
     assert.equal(data.decision.value, "caution");
     assert.match(result.content[0].text, /Layover 60 min \(clocks change: local clocks show 120 min\)/);
-    assert.match(result.content[0].text, /^BER–FRA–PVG: CAUTION — Little time is left.*\nRating: TIGHT — /);
+    // The clock change is its own instruction, right after the decision (agents kept saying "two hours").
+    assert.match(result.content[0].text, /^BER–FRA–PVG: CAUTION — Little time is left.*\nClock change: local clocks show 120 min between the flights, but only 60 min actually pass\. Tell the user the real layover is 60 min, not 120\.\nRating: TIGHT — /);
   } finally {
     await close();
   }
@@ -383,9 +387,9 @@ test("separate tickets: unknown bags are surfaced, an explicit false is respecte
     const base = { from: "BER", via: "IST", to: "PVG", layover_minutes: 100, ticket: "separate" };
     const unknown = await client.callTool({ name: "check_connection", arguments: base });
     assert.equal(unknown.structuredContent.baggage_recheck, "unknown");
-    assert.deepEqual(unknown.structuredContent.if_baggage_recheck, { buffer_minutes: 10, quality: "tight" });
+    assert.deepEqual(unknown.structuredContent.if_baggage_recheck, { buffer_minutes: -35, quality: "risky" });
     assert.equal(unknown.structuredContent.decision.value, "insufficient_data");
-    assert.match(unknown.content[0].text, /Bags: not stated\. If they must be collected .* margin is 10 min \(tight\)\. Ask the user\./);
+    assert.match(unknown.content[0].text, /Bags: not stated\. If they must be collected .* margin is -35 min \(risky\)\. Ask the user\./);
 
     const handLuggage = (await client.callTool({ name: "check_connection", arguments: { ...base, baggage_recheck: false } })).structuredContent;
     assert.equal(handLuggage.baggage_recheck, "not_required");
@@ -394,7 +398,9 @@ test("separate tickets: unknown bags are surfaced, an explicit false is respecte
 
     const rechecked = (await client.callTool({ name: "check_connection", arguments: { ...base, baggage_recheck: true } })).structuredContent;
     assert.equal(rechecked.baggage_recheck, "required");
-    assert.equal(rechecked.quality, "tight");
+    // 100 min at IST with bags on separate tickets: entry, check-in, exit and security do not fit.
+    assert.equal(rechecked.quality, "risky");
+    assert.equal(rechecked.decision.value, "avoid");
   } finally {
     await close();
   }
@@ -534,6 +540,19 @@ test("clock times without a date are accepted, and an unusable airline code is t
     const named = await call({ layover_minutes: 75, inbound_airline: "Lufthansa", outbound_airline: "other airline" });
     assert.ok(!named.isError);
     assert.equal(named.structuredContent.mct.status, "none_published");
+  } finally {
+    await close();
+  }
+});
+
+test("an avoid decision tells the agent not to soften it", async () => {
+  const { client, close } = await connect();
+  try {
+    const result = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG", layover_minutes: 75, ticket: "separate", baggage_recheck: true } });
+    assert.equal(result.structuredContent.decision.value, "avoid");
+    assert.match(result.content[0].text, /^BER–IST–PVG: AVOID — .*\nTell the user plainly that this connection is not advisable, and why\. Do not describe it as merely tight\./);
+    const fine = await client.callTool({ name: "check_connection", arguments: { from: "BER", via: "IST", to: "PVG", layover_minutes: 180, ticket: "protected" } });
+    assert.doesNotMatch(fine.content[0].text, /not advisable|Clock change/);
   } finally {
     await close();
   }

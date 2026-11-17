@@ -162,8 +162,9 @@ with a sourced figure, or report a rule the format can't express: see
   rule. Terminal-pair rules (NRT) and MUC's "some cases" are not modelled yet;
   MUC re-screening still counts as 0
   ([RFC 0001](docs/rfcs/0001-context-dependent-rules.md)).
-- **Self-transfers.** Re-checking bags adds a fixed allowance, but entering and
-  leaving the country is not counted outside Schengen.
+- **Self-transfers.** Re-checking bags on separate tickets counts entry control,
+  check-in, exit control and departure security (estimates). Whether entering
+  the country needs a visa is not checked.
 - **Clock changes at other airports.** Only the 13 profiled airports have time
   zones. Elsewhere a layover across a daylight-saving change is off by an hour
   unless the times carry UTC offsets.
