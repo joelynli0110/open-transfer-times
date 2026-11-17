@@ -6,6 +6,14 @@
 
 ## Unreleased
 
+- **MCP 0.4.2: works with flight-search tools.** The server instructions say how
+  to pass itineraries from a flight search (e.g. fli) to `compare_connections`:
+  one-stop itineraries in one call with local times and operating airlines,
+  ticket protection only when the search states it, no invented terminals or
+  bags, every connection of a multi-stop itinerary checked, and airport
+  changes reported as not assessable. Walkthrough:
+  [docs/demo-flight-search.md](docs/demo-flight-search.md).
+
 - **Eval baselines:** `--mode no-tools` (same model, no tools) and `--mode docs`
   (no tools, the airport data in the prompt) next to `--mode mcp`, to measure
   whether the server makes answers better rather than only whether agents use

@@ -49,6 +49,12 @@ Add to `claude_desktop_config.json`, then fully restart Claude:
 Then ask, in a new chat: *"From Berlin to Shanghai, which is safest: 50 minutes
 in Frankfurt, 3 hours in Istanbul or 2 hours in Vienna?"*
 
+**With a flight search.** Add a flight-search MCP server such as
+[fli](https://github.com/punitarani/fli) next to it, and ask *"Find flights
+from Berlin to Shanghai on 21 December. I prefer cheap ones, but no risky
+connections."* The agent searches, checks every connection, and ranks the
+results by risk as well as price: [docs/demo-flight-search.md](docs/demo-flight-search.md).
+
 The server is also listed in the [official MCP Registry](https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.joelynli0110/open-transfer-times)
 and on [Glama](https://glama.ai/mcp/servers/joelynli0110/open-transfer-times).
 Tools and options: [packages/mcp](packages/mcp).

@@ -329,6 +329,8 @@ test("the server sends usage instructions on connect", async () => {
     assert.match(instructions, /insufficient_data/);
     assert.match(instructions, /Call a tool first with what the user gave/);
     assert.match(instructions, /use compare_connections once/);
+    assert.match(instructions, /Itineraries from a flight-search tool: send the one-stop ones to compare_connections in one call/);
+    assert.match(instructions, /Never fill in terminals or bags the search did not give/);
   } finally {
     await close();
   }
