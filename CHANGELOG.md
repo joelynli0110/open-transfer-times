@@ -4,12 +4,21 @@
 
 
 
-## Unreleased (0.5.0)
+## 0.5.0
 
 From the first three-way comparison (MCP, airport data in the prompt, no
 tools) against the gold set. Plain `gpt-4.1-mini` without tools judged two
 cases better than with the server: a self-transfer with bags at Dubai and a
 night when clocks go forward. Both were the server's fault.
+
+Evaluation after the change (`gpt-4.1-mini`, 40 cases × 3 runs, gold set
+revision 2, still a draft): conclusions allowed 91% with the server, 90%
+without tools, 88% with the airport data in the prompt; required points
+covered 69% / 43% / 68%; "workable" when it is not 4% / 4% / 7%. The
+self-transfer cases at Istanbul and Dubai now come out as the gold set
+expects in every run. The clock-change case still fails in two of three runs.
+These differences are within a few runs and do not show that the server beats
+the baselines.
 
 - **Self-transfers with bags go landside.** On separate tickets, re-checking
   bags now counts entry control, exit control and departure security, not only
